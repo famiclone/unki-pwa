@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { createInitialSrsStats, srsStatsToReview } from '../lib/srs'
 import { db, type Card, type Deck } from './db'
 
 export type CreateDeckInput = {
@@ -55,7 +56,10 @@ async function addCard({
     ...(imageBlob ? { image: imageBlob } : {}),
   }
 
-  await db.cards.add(card)
+  await db.transaction('rw', db.cards, db.reviews, async () => {
+    await db.cards.add(card)
+    await db.reviews.add(srsStatsToReview(card.id, createInitialSrsStats()))
+  })
   return card
 }
 

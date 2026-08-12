@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, BookOpen, Plus } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addCard, db, useDb } from '../db'
 import { useObjectUrl } from '../hooks/useObjectUrl'
@@ -105,6 +105,15 @@ export function DeckEditorView() {
           {cards.length === 1 ? '1 card' : `${cards.length} cards`} in this deck.
         </p>
       </header>
+
+      {cards.length > 0 ? (
+        <div className="header-actions">
+          <Link to={`/decks/${deckId}/study`} className="study-cta">
+            <BookOpen size={18} aria-hidden />
+            Study deck
+          </Link>
+        </div>
+      ) : null}
 
       <form className="create-card-form" onSubmit={handleCreateCard}>
         <h2 className="form-title">Create card</h2>

@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Trash2 } from 'lucide-react'
+import { BookOpen, Plus, Trash2 } from 'lucide-react'
 import { useDb } from '../db'
 import './DecksView.css'
 
@@ -68,14 +68,24 @@ export function DecksView() {
                   {new Date(deck.createdAt).toLocaleDateString()}
                 </span>
               </Link>
-              <button
-                type="button"
-                className="icon-danger"
-                aria-label={`Delete ${deck.name}`}
-                onClick={() => handleDelete(deck.id, deck.name)}
-              >
-                <Trash2 size={18} />
-              </button>
+              <div className="deck-actions">
+                <Link
+                  to={`/decks/${deck.id}/study`}
+                  className="study-link"
+                  aria-label={`Study ${deck.name}`}
+                  title="Study"
+                >
+                  <BookOpen size={18} />
+                </Link>
+                <button
+                  type="button"
+                  className="icon-danger"
+                  aria-label={`Delete ${deck.name}`}
+                  onClick={() => handleDelete(deck.id, deck.name)}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </li>
           ))}
         </ul>

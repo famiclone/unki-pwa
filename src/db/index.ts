@@ -8,3 +8,9 @@ export {
   type CreateDeckInput,
   type AddCardInput,
 } from './useDb'
+export {
+  getStudyQueue,
+  rateCard,
+  ensureNewReview,
+  type StudyItem,
+} from './study'
