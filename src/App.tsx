@@ -5,9 +5,12 @@ import { DecksView } from './views/DecksView'
 import { DeckEditorView } from './views/DeckEditorView'
 import { StudyView } from './views/StudyView'
 
+/** Vite BASE_URL ends with `/`; React Router basename should not. */
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '')
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename || undefined}>
       <Routes>
         <Route element={<AppLayout />}>
           <Route index element={<DecksView />} />
