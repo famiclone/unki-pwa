@@ -1,36 +1,159 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --font-sans: 'Source Sans 3', 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+}
+
 :root {
-  --text: #4a5560;
-  --text-h: #14201c;
-  --bg: #f7f4ef;
-  --surface: #efeae2;
-  --border: #d9d2c7;
-  --accent: #0f766e;
-  --danger: #b42318;
+  /* From famiclone/unki main.css — dotted grid canvas */
+  --bg-color: white;
+  --fg-color: #303030;
+  --dot-color: #a392d9;
+  --dot-size: 1px;
+  --dot-space: 22px;
+  --card-bg: #fdfefe;
+  --unki-primary: #1faf7f;
+  --gray-color: #ececec;
+  --mid-color: lightgray;
+
+  --radius: 0.625rem;
+  --background: var(--bg-color);
+  --foreground: var(--fg-color);
+  --card: var(--card-bg);
+  --card-foreground: var(--fg-color);
+  --popover: var(--card-bg);
+  --popover-foreground: var(--fg-color);
+  --primary: var(--unki-primary);
+  --primary-foreground: #f5fffd;
+  --secondary: #f3f1f8;
+  --secondary-foreground: var(--fg-color);
+  --muted: #f3f1f8;
+  --muted-foreground: #5c6570;
+  --accent: #ebe6f5;
+  --accent-foreground: var(--fg-color);
+  --destructive: #b42318;
+  --border: var(--gray-color);
+  --input: var(--gray-color);
+  --ring: var(--unki-primary);
+
+  /* Legacy aliases */
+  --bg: var(--background);
+  --text: var(--muted-foreground);
+  --text-h: var(--foreground);
+  --surface: var(--secondary);
   --ink: #1c1917;
-
-  --sans: 'Source Sans 3', 'Segoe UI', sans-serif;
-  --display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
-
-  font: 16px/1.45 var(--sans);
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --text: #a8b2ad;
-    --text-h: #f2f5f3;
-    --bg: #121816;
-    --surface: #1a221f;
-    --border: #2c3833;
-    --accent: #2dd4bf;
-    --danger: #f97066;
+  :root:not([data-theme='light']) {
+    /* From famiclone/unki [data-theme='dark'] — system default when unset */
+    --bg-color: #0d1117;
+    --fg-color: #e1e1ff;
+    --dot-color: #30363d;
+    --card-bg: #10171e;
+    --gray-color: #383838;
+    --unki-primary: #1faf7f;
+
+    --background: var(--bg-color);
+    --foreground: var(--fg-color);
+    --card: var(--card-bg);
+    --card-foreground: var(--fg-color);
+    --popover: var(--card-bg);
+    --popover-foreground: var(--fg-color);
+    --primary: var(--unki-primary);
+    --primary-foreground: #042f2e;
+    --secondary: #161b22;
+    --secondary-foreground: var(--fg-color);
+    --muted: #161b22;
+    --muted-foreground: #a8b2ad;
+    --accent: #1c2330;
+    --accent-foreground: var(--fg-color);
+    --destructive: #f97066;
+    --border: var(--gray-color);
+    --input: var(--gray-color);
+    --ring: var(--unki-primary);
     --ink: #ecfdf5;
   }
+}
+
+:root[data-theme='dark'] {
+  --bg-color: #0d1117;
+  --fg-color: #e1e1ff;
+  --dot-color: #30363d;
+  --card-bg: #10171e;
+  --gray-color: #383838;
+  --unki-primary: #1faf7f;
+
+  --background: var(--bg-color);
+  --foreground: var(--fg-color);
+  --card: var(--card-bg);
+  --card-foreground: var(--fg-color);
+  --popover: var(--card-bg);
+  --popover-foreground: var(--fg-color);
+  --primary: var(--unki-primary);
+  --primary-foreground: #042f2e;
+  --secondary: #161b22;
+  --secondary-foreground: var(--fg-color);
+  --muted: #161b22;
+  --muted-foreground: #a8b2ad;
+  --accent: #1c2330;
+  --accent-foreground: var(--fg-color);
+  --destructive: #f97066;
+  --border: var(--gray-color);
+  --input: var(--gray-color);
+  --ring: var(--unki-primary);
+  --ink: #ecfdf5;
+}
+
+:root[data-theme='light'] {
+  --bg-color: white;
+  --fg-color: #303030;
+  --dot-color: #a392d9;
+  --card-bg: #fdfefe;
+  --gray-color: #ececec;
+  --unki-primary: #1faf7f;
+
+  --background: var(--bg-color);
+  --foreground: var(--fg-color);
+  --card: var(--card-bg);
+  --card-foreground: var(--fg-color);
+  --popover: var(--card-bg);
+  --popover-foreground: var(--fg-color);
+  --primary: var(--unki-primary);
+  --primary-foreground: #f5fffd;
+  --secondary: #f3f1f8;
+  --secondary-foreground: var(--fg-color);
+  --muted: #f3f1f8;
+  --muted-foreground: #5c6570;
+  --accent: #ebe6f5;
+  --accent-foreground: var(--fg-color);
+  --destructive: #b42318;
+  --border: var(--gray-color);
+  --input: var(--gray-color);
+  --ring: var(--unki-primary);
+  --ink: #1c1917;
 }
 
 * {
@@ -40,6 +163,18 @@
 body {
   margin: 0;
   min-width: 320px;
+  font-family: var(--font-sans);
+  color: var(--fg-color);
+  /* Exact dotted grid from famiclone/unki src/main.css */
+  background:
+    linear-gradient(90deg, var(--bg-color) 21px, transparent 1%) center,
+    linear-gradient(var(--bg-color) 21px, transparent 1%) center,
+    var(--dot-color);
+  background-size: var(--dot-space) var(--dot-space);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
@@ -48,12 +183,7 @@ body {
 
 h1,
 h2 {
-  font-family: var(--display);
+  font-family: var(--font-display);
   font-weight: 600;
-  color: var(--text-h);
-}
-
-button,
-input {
-  font: inherit;
+  color: var(--foreground);
 }

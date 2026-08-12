@@ -26,6 +26,8 @@ export interface Card {
   romaji?: CardRomaji
   /** Translation / meaning. */
   back: CardBack
+  /** Optional example sentence. */
+  example?: string
   /** Optional image stored as a Blob in IndexedDB. */
   image?: Blob
   createdAt: number
@@ -50,8 +52,14 @@ export type UnkiDB = Dexie & {
 export const db = new Dexie('UnkiDB') as UnkiDB
 
 db.version(1).stores({
-  // Blob fields (image) are stored on the record but not indexed.
   decks: 'id, name, createdAt',
   cards: 'id, deckId, front, romaji, back, createdAt',
+  reviews: 'cardId, state, due, stability, difficulty, reps',
+})
+
+// Add optional example sentence on cards (non-indexed Blob fields remain unlisted).
+db.version(2).stores({
+  decks: 'id, name, createdAt',
+  cards: 'id, deckId, front, romaji, back, example, createdAt',
   reviews: 'cardId, state, due, stability, difficulty, reps',
 })

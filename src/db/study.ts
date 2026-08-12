@@ -15,14 +15,17 @@ export type StudyItem = {
 const DEFAULT_NEW_CARD_LIMIT = 20
 
 /**
- * Due reviews for the deck (due <= now, not new), plus a batch of new cards.
+ * Due reviews (due <= now, not new), plus a batch of new cards.
+ * Pass deckId to scope to one deck; omit to study the whole library.
  */
 export async function getStudyQueue(
-  deckId: string,
+  deckId?: string,
   newLimit = DEFAULT_NEW_CARD_LIMIT,
   now = Date.now(),
 ): Promise<StudyItem[]> {
-  const cards = await db.cards.where('deckId').equals(deckId).sortBy('createdAt')
+  const cards = deckId
+    ? await db.cards.where('deckId').equals(deckId).sortBy('createdAt')
+    : await db.cards.orderBy('createdAt').toArray()
   if (cards.length === 0) return []
 
   const reviews = await db.reviews.bulkGet(cards.map((card) => card.id))
