@@ -1,9 +1,10 @@
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { createInitialSrsStats, srsStatsToReview } from '../lib/srs'
-import { db, type Card, type Deck } from './db'
+import { db, type Card, type Deck, type Stats } from './db'
+import { getGlobalStats, putGlobalStats } from '@/hooks/useStreak'
 
-export const DECK_EXPORT_VERSION = 1 as const
+export const DECK_EXPORT_VERSION = 2 as const
 
 export type ExportedCard = {
   front: string
@@ -15,13 +16,20 @@ export type ExportedCard = {
   image?: string
 }
 
+export type ExportedStats = {
+  currentStreak: number
+  lastStudyDate: string
+}
+
 export type ExportedDeckJson = {
-  version: typeof DECK_EXPORT_VERSION
+  version: 1 | typeof DECK_EXPORT_VERSION
   deck: {
     name: string
     createdAt: number
   }
   cards: ExportedCard[]
+  /** Global streak stats (export v2+). */
+  stats?: ExportedStats
 }
 
 function extensionForMime(mime: string): string {
@@ -49,6 +57,7 @@ function sanitizeFilename(name: string): string {
 async function buildCardsZip(
   cards: Card[],
   deckMeta: { name: string; createdAt: number },
+  includeStats: boolean,
 ): Promise<Blob> {
   const zip = new JSZip()
   const imagesFolder = zip.folder('images')
@@ -83,6 +92,14 @@ async function buildCardsZip(
     cards: exportedCards,
   }
 
+  if (includeStats) {
+    const stats = await getGlobalStats()
+    payload.stats = {
+      currentStreak: stats.currentStreak,
+      lastStudyDate: stats.lastStudyDate,
+    }
+  }
+
   zip.file('deck.json', JSON.stringify(payload, null, 2))
   return zip.generateAsync({ type: 'blob' })
 }
@@ -97,10 +114,14 @@ export async function exportDeck(deckId: string): Promise<void> {
   }
 
   const cards = await db.cards.where('deckId').equals(deckId).sortBy('createdAt')
-  const blob = await buildCardsZip(cards, {
-    name: deck.name,
-    createdAt: deck.createdAt,
-  })
+  const blob = await buildCardsZip(
+    cards,
+    {
+      name: deck.name,
+      createdAt: deck.createdAt,
+    },
+    true,
+  )
   saveAs(blob, `${sanitizeFilename(deck.name)}.unki.zip`)
 }
 
@@ -111,22 +132,69 @@ export async function exportAllCards(): Promise<void> {
     throw new Error('No cards to export')
   }
 
-  const blob = await buildCardsZip(cards, {
-    name: 'All Cards',
-    createdAt: Date.now(),
-  })
+  const blob = await buildCardsZip(
+    cards,
+    {
+      name: 'All Cards',
+      createdAt: Date.now(),
+    },
+    true,
+  )
   saveAs(blob, 'unki-all-cards.unki.zip')
 }
 
 function isExportedDeckJson(value: unknown): value is ExportedDeckJson {
   if (!value || typeof value !== 'object') return false
   const data = value as Record<string, unknown>
-  if (data.version !== DECK_EXPORT_VERSION) return false
+  if (data.version !== 1 && data.version !== DECK_EXPORT_VERSION) return false
   if (!data.deck || typeof data.deck !== 'object') return false
   const deck = data.deck as Record<string, unknown>
   if (typeof deck.name !== 'string') return false
   if (!Array.isArray(data.cards)) return false
   return true
+}
+
+function parseExportedStats(value: unknown): ExportedStats | null {
+  if (!value || typeof value !== 'object') return null
+  const data = value as Record<string, unknown>
+  if (typeof data.currentStreak !== 'number') return null
+  if (typeof data.lastStudyDate !== 'string') return null
+  return {
+    currentStreak: data.currentStreak,
+    lastStudyDate: data.lastStudyDate,
+  }
+}
+
+/**
+ * Merge imported streak with the existing global record (keep the stronger streak).
+ */
+async function mergeImportedStats(incoming: ExportedStats): Promise<void> {
+  const existing = await getGlobalStats()
+  const next: Stats = {
+    id: 'global',
+    currentStreak: existing.currentStreak,
+    lastStudyDate: existing.lastStudyDate,
+  }
+
+  if (!existing.lastStudyDate && incoming.lastStudyDate) {
+    next.currentStreak = Math.max(0, Math.floor(incoming.currentStreak))
+    next.lastStudyDate = incoming.lastStudyDate
+  } else if (
+    incoming.lastStudyDate &&
+    incoming.lastStudyDate >= existing.lastStudyDate &&
+    incoming.currentStreak >= existing.currentStreak
+  ) {
+    next.currentStreak = Math.max(0, Math.floor(incoming.currentStreak))
+    next.lastStudyDate = incoming.lastStudyDate
+  } else if (
+    incoming.lastStudyDate &&
+    incoming.lastStudyDate > existing.lastStudyDate
+  ) {
+    next.currentStreak = Math.max(0, Math.floor(incoming.currentStreak))
+    next.lastStudyDate = incoming.lastStudyDate
+  }
+
+  await putGlobalStats(next)
 }
 
 /**
@@ -209,6 +277,11 @@ export async function importDeck(file: File): Promise<Deck> {
       await db.reviews.bulkAdd(reviews)
     }
   })
+
+  const importedStats = parseExportedStats(raw.stats)
+  if (importedStats) {
+    await mergeImportedStats(importedStats)
+  }
 
   return newDeck
 }

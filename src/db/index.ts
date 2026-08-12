@@ -1,4 +1,13 @@
-export { db, type Card, type Deck, type Review, type ReviewState, type UnkiDB } from './db'
+export {
+  db,
+  GLOBAL_STATS_ID,
+  type Card,
+  type Deck,
+  type Review,
+  type ReviewState,
+  type Stats,
+  type UnkiDB,
+} from './db'
 export {
   useDb,
   createDeck,
@@ -30,4 +39,5 @@ export {
   DECK_EXPORT_VERSION,
   type ExportedDeckJson,
   type ExportedCard,
+  type ExportedStats,
 } from './transfer'
