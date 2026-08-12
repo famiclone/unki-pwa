@@ -4,61 +4,70 @@ import { ArrowLeft } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
-import { GRADE_LABELS, type Grade } from '../lib/srs'
-import { useObjectUrl } from '../hooks/useObjectUrl'
+import type { Grade } from '../lib/srs'
+import { Flashcard } from '@/components/Flashcard'
 import './StudyView.css'
 
-function Flashcard({
+const STUDY_ACTIONS: Array<{ grade: Grade; label: string; className: string }> =
+  [
+    { grade: 1, label: 'Study again', className: 'grade-btn grade-again' },
+    { grade: 3, label: 'I know', className: 'grade-btn grade-know' },
+  ]
+
+function GradeButtons({
+  onRate,
+  rating,
+}: {
+  onRate: (grade: Grade) => void
+  rating: boolean
+}) {
+  return (
+    <div className="grade-row" role="group" aria-label="Rate recall">
+      {STUDY_ACTIONS.map(({ grade, label, className }) => (
+        <button
+          key={grade}
+          type="button"
+          className={className}
+          disabled={rating}
+          onClick={() => onRate(grade)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function StudyFlashcard({
   item,
   revealed,
   onReveal,
   onRate,
   rating,
+  meta,
 }: {
   item: StudyItem
   revealed: boolean
   onReveal: () => void
   onRate: (grade: Grade) => void
   rating: boolean
+  meta: string
 }) {
-  const imageUrl = useObjectUrl(item.card.image)
-  const grades: Grade[] = [1, 2, 3, 4]
-
   return (
-    <article className="flashcard">
-      <div className="flashcard-prompt">
-        {imageUrl ? (
-          <img src={imageUrl} alt="" className="flashcard-image" />
-        ) : null}
-        <p className="flashcard-front">{item.card.front}</p>
-        {item.card.romaji ? (
-          <p className="flashcard-romaji">{item.card.romaji}</p>
-        ) : null}
-      </div>
+    <div className="study-flashcard-stack">
+      <Flashcard
+        card={item.card}
+        revealed={revealed}
+        meta={meta}
+        onFlip={onReveal}
+      />
 
-      {!revealed ? (
-        <button type="button" className="show-answer" onClick={onReveal}>
-          Show answer
-        </button>
-      ) : (
-        <div className="flashcard-answer">
-          <p className="flashcard-back">{item.card.back}</p>
-          <div className="grade-row" role="group" aria-label="Rate recall">
-            {grades.map((grade) => (
-              <button
-                key={grade}
-                type="button"
-                className={`grade-btn grade-${grade}`}
-                disabled={rating}
-                onClick={() => onRate(grade)}
-              >
-                {GRADE_LABELS[grade]}
-              </button>
-            ))}
-          </div>
+      {revealed ? (
+        <div className="study-flashcard-actions">
+          <GradeButtons onRate={onRate} rating={rating} />
         </div>
-      )}
-    </article>
+      ) : null}
+    </div>
   )
 }
 
@@ -132,6 +141,9 @@ export function StudyView() {
   }
 
   const finished = !current
+  const cardMeta = current
+    ? `${backLabel} / ${String(doneCount + 1).padStart(3, '0')}`
+    : ''
 
   return (
     <section className="study-view">
@@ -161,7 +173,7 @@ export function StudyView() {
           <div className="study-actions">
             <button
               type="button"
-              className="show-answer"
+              className="refresh-btn"
               onClick={() => void loadQueue()}
             >
               Refresh queue
@@ -172,12 +184,13 @@ export function StudyView() {
           </div>
         </div>
       ) : (
-        <Flashcard
+        <StudyFlashcard
           item={current}
           revealed={revealed}
-          onReveal={() => setRevealed(true)}
+          onReveal={() => setRevealed((value) => !value)}
           onRate={handleRate}
           rating={rating}
+          meta={cardMeta}
         />
       )}
     </section>

@@ -1,0 +1,141 @@
+@keyframes flipOpacity {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.container {
+  width: 100%;
+  transform: translateY(0);
+  transition: 0.3s ease-out;
+  perspective: 1000px;
+}
+
+.container:hover {
+  transform: translateY(-0.25rem);
+}
+
+.wrapper {
+  box-shadow: 0 0.3125rem 1.25rem -12px rgba(0, 0, 0, 0.16);
+  padding: 0 30px;
+  border: 1px solid var(--gray-color);
+  width: 100%;
+  /* ISO/IEC 7810 ID-1 credit card ratio (85.60 × 53.98 mm) */
+  aspect-ratio: 1.586 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  font-size: 21px;
+  transform: rotateY(0deg);
+  transition:
+    transform 0.3s,
+    background-color 0.15s;
+  transform-style: preserve-3d;
+  background-color: var(--card-bg);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.side0 {
+  animation: flipOpacity 1s;
+  background-color: var(--unki-primary);
+  color: white;
+  font-size: 1.4rem;
+  font-weight: bold;
+  overflow: hidden;
+}
+
+.side1 {
+  animation: flipOpacity 2s;
+  height: 100%;
+  transform: rotateY(180deg);
+  font-size: 1rem;
+  font-weight: normal;
+  background-color: var(--card-bg);
+  color: var(--fg-color);
+}
+
+.face {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  text-align: center;
+  box-sizing: border-box;
+  padding: 1.25rem 0 2rem;
+}
+
+.backFace {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  text-align: left;
+  box-sizing: border-box;
+  padding: 1.25rem 0 2rem;
+  transform: rotateY(-180deg);
+  font-weight: normal;
+  overflow: auto;
+}
+
+.image {
+  width: 100%;
+  max-height: 45%;
+  object-fit: contain;
+  border-radius: 12px;
+  background: color-mix(in oklab, #000 8%, transparent);
+}
+
+.frontText {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: bold;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.romaji {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.backText {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.example {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  opacity: 0.75;
+  line-height: 1.4;
+}
+
+.meta {
+  position: absolute;
+  right: 30px;
+  bottom: 14px;
+  left: 30px;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  opacity: 0.5;
+  text-align: left;
+}
+
+.side1 .meta {
+  transform: rotateY(-180deg);
+}

@@ -1,10 +1,11 @@
 import { Link, Outlet } from 'react-router-dom'
 import { BookOpen, Layers } from 'lucide-react'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export function AppLayout() {
   return (
-    <div className="flex min-h-svh flex-col bg-[radial-gradient(1200px_500px_at_10%_-10%,color-mix(in_oklab,var(--primary)_16%,transparent),transparent_60%),var(--background)]">
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-border bg-background/85 px-5 py-3.5 backdrop-blur-md">
+    <div className="flex min-h-svh flex-col bg-transparent">
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-border bg-[color-mix(in_oklab,var(--bg-color)_88%,transparent)] px-5 py-3.5 backdrop-blur-md">
         <Link
           to="/"
           className="inline-flex items-center gap-2 font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight text-foreground no-underline"
@@ -26,6 +27,7 @@ export function AppLayout() {
             <BookOpen size={16} aria-hidden />
             Study
           </Link>
+          <ThemeToggle />
         </nav>
       </header>
       <main className="mx-auto w-full max-w-[720px] flex-1 px-5 py-6 pb-12 text-left">
