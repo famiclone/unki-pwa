@@ -1,6 +1,7 @@
 import { Link, Outlet } from 'react-router-dom'
 import { BookOpen, Layers } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { StreakBadge } from '@/components/StreakBadge'
 
 export function AppLayout() {
   return (
@@ -14,6 +15,7 @@ export function AppLayout() {
           <span>Unki</span>
         </Link>
         <nav className="flex items-center gap-1" aria-label="Main">
+          <StreakBadge />
           <Link
             to="/"
             className="rounded-md px-2.5 py-1.5 text-sm text-muted-foreground no-underline hover:bg-accent hover:text-foreground"

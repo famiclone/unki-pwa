@@ -11,6 +11,8 @@ export type CardBack = string
 
 export type ReviewState = 'new' | 'learning' | 'review'
 
+export const GLOBAL_STATS_ID = 'global' as const
+
 export interface Deck {
   id: string
   name: string
@@ -43,10 +45,18 @@ export interface Review {
   reps: number
 }
 
+export interface Stats {
+  id: typeof GLOBAL_STATS_ID | string
+  currentStreak: number
+  /** Local calendar date as YYYY-MM-DD. */
+  lastStudyDate: string
+}
+
 export type UnkiDB = Dexie & {
   decks: EntityTable<Deck, 'id'>
   cards: EntityTable<Card, 'id'>
   reviews: EntityTable<Review, 'cardId'>
+  stats: EntityTable<Stats, 'id'>
 }
 
 export const db = new Dexie('UnkiDB') as UnkiDB
@@ -62,4 +72,12 @@ db.version(2).stores({
   decks: 'id, name, createdAt',
   cards: 'id, deckId, front, romaji, back, example, createdAt',
   reviews: 'cardId, state, due, stability, difficulty, reps',
+})
+
+// Global streak / study stats (single row id: 'global').
+db.version(3).stores({
+  decks: 'id, name, createdAt',
+  cards: 'id, deckId, front, romaji, back, example, createdAt',
+  reviews: 'cardId, state, due, stability, difficulty, reps',
+  stats: 'id, currentStreak, lastStudyDate',
 })
