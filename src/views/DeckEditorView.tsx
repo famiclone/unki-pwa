@@ -1,8 +1,8 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Plus } from 'lucide-react'
+import { ArrowLeft, BookOpen, Download, Plus } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { addCard, db, useDb } from '../db'
+import { addCard, db, exportDeck, useDb } from '../db'
 import { useObjectUrl } from '../hooks/useObjectUrl'
 import type { Card } from '../db'
 import './DeckEditorView.css'
@@ -42,7 +42,9 @@ export function DeckEditorView() {
   const [back, setBack] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [fileInputKey, setFileInputKey] = useState(0)
+  const [status, setStatus] = useState<string | null>(null)
 
   useEffect(() => {
     setFront('')
@@ -76,6 +78,20 @@ export function DeckEditorView() {
     }
   }
 
+  async function handleExport() {
+    if (!deckId || exporting) return
+    setExporting(true)
+    setStatus(null)
+    try {
+      await exportDeck(deckId)
+      setStatus('Deck exported.')
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Export failed.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (deck === undefined) {
     return <p className="empty-state">Loading deck…</p>
   }
@@ -106,14 +122,25 @@ export function DeckEditorView() {
         </p>
       </header>
 
-      {cards.length > 0 ? (
-        <div className="header-actions">
+      <div className="header-actions">
+        <button
+          type="button"
+          className="secondary-btn"
+          disabled={exporting}
+          onClick={() => void handleExport()}
+        >
+          <Download size={18} aria-hidden />
+          {exporting ? 'Exporting…' : 'Export'}
+        </button>
+        {cards.length > 0 ? (
           <Link to={`/decks/${deckId}/study`} className="study-cta">
             <BookOpen size={18} aria-hidden />
             Study deck
           </Link>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
+
+      {status ? <p className="status-message">{status}</p> : null}
 
       <form className="create-card-form" onSubmit={handleCreateCard}>
         <h2 className="form-title">Create card</h2>

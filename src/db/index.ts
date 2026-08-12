@@ -14,3 +14,10 @@ export {
   ensureNewReview,
   type StudyItem,
 } from './study'
+export {
+  exportDeck,
+  importDeck,
+  DECK_EXPORT_VERSION,
+  type ExportedDeckJson,
+  type ExportedCard,
+} from './transfer'
