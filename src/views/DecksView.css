@@ -179,6 +179,31 @@
   text-decoration: none;
 }
 
+.secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-h);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.status-message {
+  margin: -0.5rem 0 1rem;
+  color: var(--text-h);
+  font-size: 0.9rem;
+}
+
 .empty-state {
   color: var(--text);
   padding: 1.25rem 0;
