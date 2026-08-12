@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
+import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
 import { DecksView } from './views/DecksView'
 import { DeckEditorView } from './views/DeckEditorView'
 import { StudyView } from './views/StudyView'
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
+      <PwaUpdatePrompt />
     </BrowserRouter>
   )
 }

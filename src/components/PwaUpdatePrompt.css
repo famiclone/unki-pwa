@@ -1,0 +1,48 @@
+.pwa-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text-h);
+  box-shadow: 0 12px 30px color-mix(in oklab, var(--ink) 18%, transparent);
+}
+
+.pwa-toast-message {
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.pwa-toast-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.pwa-toast-primary,
+.pwa-toast-secondary {
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pwa-toast-primary {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+}
+
+.pwa-toast-secondary {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+}
