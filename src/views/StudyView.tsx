@@ -7,7 +7,6 @@ import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
 import { GRADE_LABELS, type Grade } from '../lib/srs'
 import { useObjectUrl } from '../hooks/useObjectUrl'
 import './StudyView.css'
-import './DecksView.css'
 
 function Flashcard({
   item,
@@ -64,8 +63,11 @@ function Flashcard({
 }
 
 export function StudyView() {
-  const { deckId = '' } = useParams<{ deckId: string }>()
-  const deck = useLiveQuery(() => db.decks.get(deckId), [deckId])
+  const { deckId } = useParams<{ deckId?: string }>()
+  const deck = useLiveQuery(async () => {
+    if (!deckId) return null
+    return (await db.decks.get(deckId)) ?? null
+  }, [deckId])
 
   const [queue, setQueue] = useState<StudyItem[]>([])
   const [revealed, setRevealed] = useState(false)
@@ -74,7 +76,6 @@ export function StudyView() {
   const [doneCount, setDoneCount] = useState(0)
 
   const loadQueue = useCallback(async () => {
-    if (!deckId) return
     setLoading(true)
     try {
       const nextQueue = await getStudyQueue(deckId)
@@ -112,17 +113,19 @@ export function StudyView() {
     }
   }
 
-  if (deck === undefined || loading) {
+  const backLabel = deck?.name ?? 'All Cards'
+
+  if ((deckId && deck === undefined) || loading) {
     return <p className="empty-state">Loading study session…</p>
   }
 
-  if (deck === null) {
+  if (deckId && deck === null) {
     return (
       <section>
         <p className="empty-state">Deck not found.</p>
         <Link to="/" className="back-link">
           <ArrowLeft size={16} aria-hidden />
-          Back to decks
+          Back to cards
         </Link>
       </section>
     )
@@ -132,9 +135,9 @@ export function StudyView() {
 
   return (
     <section className="study-view">
-      <Link to={`/decks/${deckId}`} className="text-back">
+      <Link to="/" className="text-back">
         <ArrowLeft size={16} aria-hidden />
-        {deck.name}
+        {backLabel}
       </Link>
 
       <header className="view-header">
@@ -163,8 +166,8 @@ export function StudyView() {
             >
               Refresh queue
             </button>
-            <Link to={`/decks/${deckId}`} className="back-link">
-              Edit deck
+            <Link to="/" className="back-link">
+              All cards
             </Link>
           </div>
         </div>

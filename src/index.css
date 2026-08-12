@@ -1,34 +1,80 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --font-sans: 'Source Sans 3', 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+}
+
 :root {
-  --text: #4a5560;
-  --text-h: #14201c;
-  --bg: #f7f4ef;
-  --surface: #efeae2;
+  --radius: 0.625rem;
+  --background: #f7f4ef;
+  --foreground: #14201c;
+  --card: #fffdf9;
+  --card-foreground: #14201c;
+  --popover: #fffdf9;
+  --popover-foreground: #14201c;
+  --primary: #0f766e;
+  --primary-foreground: #f5fffd;
+  --secondary: #efeae2;
+  --secondary-foreground: #14201c;
+  --muted: #efeae2;
+  --muted-foreground: #4a5560;
+  --accent: #e4ddd2;
+  --accent-foreground: #14201c;
+  --destructive: #b42318;
   --border: #d9d2c7;
-  --accent: #0f766e;
-  --danger: #b42318;
+  --input: #d9d2c7;
+  --ring: #0f766e;
+
+  /* Legacy aliases used by StudyView / PWA toast CSS */
+  --bg: var(--background);
+  --text: var(--muted-foreground);
+  --text-h: var(--foreground);
+  --surface: var(--secondary);
   --ink: #1c1917;
-
-  --sans: 'Source Sans 3', 'Segoe UI', sans-serif;
-  --display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
-
-  font: 16px/1.45 var(--sans);
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #a8b2ad;
-    --text-h: #f2f5f3;
-    --bg: #121816;
-    --surface: #1a221f;
+    --background: #121816;
+    --foreground: #f2f5f3;
+    --card: #1a221f;
+    --card-foreground: #f2f5f3;
+    --popover: #1a221f;
+    --popover-foreground: #f2f5f3;
+    --primary: #2dd4bf;
+    --primary-foreground: #042f2e;
+    --secondary: #1a221f;
+    --secondary-foreground: #f2f5f3;
+    --muted: #1a221f;
+    --muted-foreground: #a8b2ad;
+    --accent: #24302c;
+    --accent-foreground: #f2f5f3;
+    --destructive: #f97066;
     --border: #2c3833;
-    --accent: #2dd4bf;
-    --danger: #f97066;
+    --input: #2c3833;
+    --ring: #2dd4bf;
     --ink: #ecfdf5;
   }
 }
@@ -40,6 +86,13 @@
 body {
   margin: 0;
   min-width: 320px;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  background: var(--background);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
@@ -48,12 +101,7 @@ body {
 
 h1,
 h2 {
-  font-family: var(--display);
+  font-family: var(--font-display);
   font-weight: 600;
-  color: var(--text-h);
-}
-
-button,
-input {
-  font: inherit;
+  color: var(--foreground);
 }

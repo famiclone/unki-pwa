@@ -9,6 +9,7 @@ export type ExportedCard = {
   front: string
   romaji?: string
   back: string
+  example?: string
   createdAt: number
   /** Relative path inside the zip (e.g. images/abc.webp). */
   image?: string
@@ -45,16 +46,10 @@ function sanitizeFilename(name: string): string {
   return cleaned.slice(0, 60) || 'deck'
 }
 
-/**
- * Fetch a deck, its cards, and images from Dexie; zip as deck.json + images; download.
- */
-export async function exportDeck(deckId: string): Promise<void> {
-  const deck = await db.decks.get(deckId)
-  if (!deck) {
-    throw new Error('Deck not found')
-  }
-
-  const cards = await db.cards.where('deckId').equals(deckId).sortBy('createdAt')
+async function buildCardsZip(
+  cards: Card[],
+  deckMeta: { name: string; createdAt: number },
+): Promise<Blob> {
   const zip = new JSZip()
   const imagesFolder = zip.folder('images')
   if (!imagesFolder) {
@@ -69,6 +64,7 @@ export async function exportDeck(deckId: string): Promise<void> {
       back: card.back,
       createdAt: card.createdAt,
       ...(card.romaji ? { romaji: card.romaji } : {}),
+      ...(card.example ? { example: card.example } : {}),
     }
 
     if (card.image) {
@@ -83,18 +79,43 @@ export async function exportDeck(deckId: string): Promise<void> {
 
   const payload: ExportedDeckJson = {
     version: DECK_EXPORT_VERSION,
-    deck: {
-      name: deck.name,
-      createdAt: deck.createdAt,
-    },
+    deck: deckMeta,
     cards: exportedCards,
   }
 
   zip.file('deck.json', JSON.stringify(payload, null, 2))
+  return zip.generateAsync({ type: 'blob' })
+}
 
-  const blob = await zip.generateAsync({ type: 'blob' })
-  const filename = `${sanitizeFilename(deck.name)}.unki.zip`
-  saveAs(blob, filename)
+/**
+ * Fetch a deck, its cards, and images from Dexie; zip as deck.json + images; download.
+ */
+export async function exportDeck(deckId: string): Promise<void> {
+  const deck = await db.decks.get(deckId)
+  if (!deck) {
+    throw new Error('Deck not found')
+  }
+
+  const cards = await db.cards.where('deckId').equals(deckId).sortBy('createdAt')
+  const blob = await buildCardsZip(cards, {
+    name: deck.name,
+    createdAt: deck.createdAt,
+  })
+  saveAs(blob, `${sanitizeFilename(deck.name)}.unki.zip`)
+}
+
+/** Export every card in the database as a single archive. */
+export async function exportAllCards(): Promise<void> {
+  const cards = await db.cards.orderBy('createdAt').toArray()
+  if (cards.length === 0) {
+    throw new Error('No cards to export')
+  }
+
+  const blob = await buildCardsZip(cards, {
+    name: 'All Cards',
+    createdAt: Date.now(),
+  })
+  saveAs(blob, 'unki-all-cards.unki.zip')
 }
 
 function isExportedDeckJson(value: unknown): value is ExportedDeckJson {
@@ -171,6 +192,9 @@ export async function importDeck(file: File): Promise<Deck> {
       createdAt:
         typeof exported.createdAt === 'number' ? exported.createdAt : now,
       ...(exported.romaji?.trim() ? { romaji: exported.romaji.trim() } : {}),
+      ...(typeof exported.example === 'string' && exported.example.trim()
+        ? { example: exported.example.trim() }
+        : {}),
       ...(image ? { image } : {}),
     }
 

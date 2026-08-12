@@ -18,5 +18,5 @@ Core Architectural Rules:
 
 Database Schema (Dexie):
 - Table 'decks': id (string), name (string), createdAt (number).
-- Table 'cards': id (string), deckId (string), front (string), romaji (string, optional), back (string), image (Blob, optional), createdAt (number).
+- Table 'cards': id (string), deckId (string), front (string), romaji (string, optional), back (string), example (string, optional), image (Blob, optional), createdAt (number).
 - Table 'reviews': cardId (string), state (string: 'new' | 'learning' | 'review'), due (number - timestamp), stability (number), difficulty (number), reps (number).
