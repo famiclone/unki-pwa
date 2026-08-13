@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { AppLayout } from './components/AppLayout'
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
 import { AllCardsView } from './views/AllCardsView'
@@ -28,6 +29,7 @@ export default function App() {
         </Route>
       </Routes>
       <PwaUpdatePrompt />
+      <Toaster position="top-center" richColors closeButton />
     </BrowserRouter>
   )
 }

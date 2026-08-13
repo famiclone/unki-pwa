@@ -5,8 +5,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Deck } from '../db'
 import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
 import type { Grade } from '../lib/srs'
+import { toast } from 'sonner'
 import { Flashcard } from '@/components/Flashcard'
-import { recordStudyActivity } from '@/hooks/useStreak'
+import { awardReviewExp, recordStudyActivity } from '@/hooks/useStreak'
 import './StudyView.css'
 
 const STUDY_ACTIONS: Array<{ grade: Grade; label: string; className: string }> =
@@ -100,6 +101,9 @@ export function StudyView() {
   const [rating, setRating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [doneCount, setDoneCount] = useState(0)
+  const [expBurst, setExpBurst] = useState<{ id: number; amount: number } | null>(
+    null,
+  )
 
   const loadQueue = useCallback(async () => {
     setLoading(true)
@@ -124,7 +128,15 @@ export function StudyView() {
 
     setRating(true)
     try {
+      const wasNew = !current.review || current.review.state === 'new'
       const updated = await rateCard(current.card.id, grade, current.review)
+      const award = await awardReviewExp(grade, wasNew)
+      if (award.leveledUp) {
+        toast.success(`🎉 Level Up! You are now Level ${award.newLevel}!`)
+      }
+      if (award.expGained > 0 && (grade === 3 || grade === 4)) {
+        setExpBurst({ id: Date.now(), amount: award.expGained })
+      }
       await recordStudyActivity()
       setDoneCount((n) => n + 1)
       setQueue((prev) => {
@@ -207,16 +219,28 @@ export function StudyView() {
           </div>
         </div>
       ) : (
-        <StudyFlashcard
-          key={`${current.card.id}-${doneCount}`}
-          item={current}
-          revealed={revealed}
-          onReveal={() => setRevealed((value) => !value)}
-          onRate={handleRate}
-          rating={rating}
-          meta={cardMeta}
-          deckColor={currentDeckColor}
-        />
+        <div className="study-card-stage">
+          <StudyFlashcard
+            key={`${current.card.id}-${doneCount}`}
+            item={current}
+            revealed={revealed}
+            onReveal={() => setRevealed((value) => !value)}
+            onRate={handleRate}
+            rating={rating}
+            meta={cardMeta}
+            deckColor={currentDeckColor}
+          />
+          {expBurst ? (
+            <span
+              key={expBurst.id}
+              className="exp-burst"
+              aria-live="polite"
+              onAnimationEnd={() => setExpBurst(null)}
+            >
+              + {expBurst.amount} EXP
+            </span>
+          ) : null}
+        </div>
       )}
     </section>
   )

@@ -55,6 +55,10 @@ export interface Stats {
   currentStreak: number
   /** Local calendar date as YYYY-MM-DD. */
   lastStudyDate: string
+  /** Lifetime experience points (RPG). */
+  exp: number
+  /** Derived RPG level (starts at 1). */
+  level: number
 }
 
 export interface DailyLog {
@@ -121,3 +125,22 @@ db.version(6).stores({
   stats: 'id, currentStreak, lastStudyDate',
   dailyLog: 'id, cardsReviewed, didStudy',
 })
+
+// RPG exp / level on the global stats row.
+db.version(7)
+  .stores({
+    decks: 'id, name, description, color, createdAt',
+    cards: 'id, deckId, front, romaji, back, example, createdAt',
+    reviews: 'cardId, state, due, stability, difficulty, reps',
+    stats: 'id, currentStreak, lastStudyDate, exp, level',
+    dailyLog: 'id, cardsReviewed, didStudy',
+  })
+  .upgrade(async (tx) => {
+    await tx
+      .table('stats')
+      .toCollection()
+      .modify((row: { exp?: number; level?: number }) => {
+        if (typeof row.exp !== 'number') row.exp = 0
+        if (typeof row.level !== 'number') row.level = 1
+      })
+  })

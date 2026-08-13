@@ -20,6 +20,8 @@ export type ExportedCard = {
 export type ExportedStats = {
   currentStreak: number
   lastStudyDate: string
+  exp?: number
+  level?: number
 }
 
 export type ExportedDailyLog = {
@@ -161,6 +163,8 @@ async function buildCardsZip(
     payload.stats = {
       currentStreak: stats.currentStreak,
       lastStudyDate: stats.lastStudyDate,
+      exp: stats.exp,
+      level: stats.level,
     }
     payload.dailyLog = dailyLog.map((entry) => ({
       id: entry.id,
@@ -234,6 +238,8 @@ function parseExportedStats(value: unknown): ExportedStats | null {
   return {
     currentStreak: data.currentStreak,
     lastStudyDate: data.lastStudyDate,
+    ...(typeof data.exp === 'number' ? { exp: data.exp } : {}),
+    ...(typeof data.level === 'number' ? { level: data.level } : {}),
   }
 }
 
@@ -246,6 +252,8 @@ async function mergeImportedStats(incoming: ExportedStats): Promise<void> {
     id: 'global',
     currentStreak: existing.currentStreak,
     lastStudyDate: existing.lastStudyDate,
+    exp: Math.max(existing.exp, Math.max(0, Math.floor(incoming.exp ?? 0))),
+    level: existing.level,
   }
 
   if (!existing.lastStudyDate && incoming.lastStudyDate) {
