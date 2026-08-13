@@ -15,6 +15,8 @@ export {
   addInventoryItem,
   applyItemEffect,
   buyItem,
+  sellInventoryItem,
+  getSellPrice,
   useInventoryItem,
   type InventoryStack,
 } from './inventory'

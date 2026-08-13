@@ -1,13 +1,18 @@
 import type { Stats } from '@/db/db'
 import { calculateLevelStats, deriveCombatStats, snapHearts } from '@/lib/gamification'
+import { generateLootName } from '@/lib/nameGenerator'
 
-export type ItemType = 'consumable' | 'scroll' | 'trap'
+export type ItemType = 'consumable' | 'scroll' | 'trap' | 'trinket'
 
 export type ItemId =
   | 'health_potion'
   | 'knowledge_scroll'
   | 'mimic_trap'
   | 'escape_rope'
+  | 'random_trinket'
+
+export const RANDOM_TRINKET_ID = 'random_trinket' as const
+export const TRINKET_DROP_CHANCE = 0.6
 
 /** Consumables that can be used from the in-dungeon bag. */
 export const RUN_BAG_ITEM_IDS: readonly ItemId[] = [
@@ -32,7 +37,7 @@ export interface Item {
   name: string
   description: string
   type: ItemType
-  /** Coin price in the shop. */
+  /** Coin price in the shop, or sell value for trinkets. */
   value: number
   action: (stats: Stats) => ItemActionResult
 }
@@ -117,9 +122,33 @@ export const ITEMS: Record<ItemId, Item> = {
       }
     },
   },
+  random_trinket: {
+    id: 'random_trinket',
+    name: 'Strange Relic',
+    description: 'A valuable artifact. A merchant would pay good coins for this.',
+    type: 'trinket',
+    value: 15,
+    action(stats) {
+      return {
+        stats: { ...stats, coins: stats.coins + 15 },
+        heartsDelta: 0,
+        expDelta: 0,
+        message: 'Sold for 15 🪙',
+      }
+    },
+  },
 }
 
-export const ITEM_LIST: Item[] = Object.values(ITEMS)
+export const ITEM_LIST: Item[] = Object.values(ITEMS).filter(
+  (item) => item.type !== 'trinket',
+)
+
+export const SHOP_ITEMS: Item[] = ITEM_LIST.filter((item) => item.type !== 'trap')
+
+const USEFUL_CHEST_LOOT: Item[] = [
+  ITEMS.health_potion,
+  ITEMS.knowledge_scroll,
+]
 
 /** Chance a successful review (Good/Easy) reveals a chest instead of the next card. */
 export const CHEST_DROP_CHANCE = 0.15
@@ -127,6 +156,30 @@ export const CHEST_DROP_CHANCE = 0.15
 export function pickRandomLoot(table: readonly Item[] = ITEM_LIST): Item {
   const index = Math.floor(Math.random() * table.length)
   return table[index] ?? ITEM_LIST[0]!
+}
+
+export function createRandomTrinket(): Item {
+  const value = Math.floor(Math.random() * 20) + 5
+  return {
+    ...ITEMS.random_trinket,
+    name: generateLootName(),
+    description: 'A valuable artifact. A merchant would pay good coins for this.',
+    value,
+    action(stats) {
+      return {
+        stats: { ...stats, coins: stats.coins + value },
+        heartsDelta: 0,
+        expDelta: 0,
+        message: `Sold for ${value} 🪙`,
+      }
+    },
+  }
+}
+
+/** 60% named trinket, 40% potion or scroll. */
+export function pickChestLoot(): Item {
+  if (Math.random() < TRINKET_DROP_CHANCE) return createRandomTrinket()
+  return pickRandomLoot(USEFUL_CHEST_LOOT)
 }
 
 export function getItem(itemId: string): Item | undefined {

@@ -15,16 +15,16 @@ import type { Grade } from '../lib/srs'
 import {
   CHEST_DROP_CHANCE,
   isRunBagItemId,
-  pickRandomLoot,
+  pickChestLoot,
   type Item,
 } from '@/lib/items'
+import { generateDungeonName } from '@/lib/nameGenerator'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ChestEncounter } from '@/components/ChestEncounter'
 import { Flashcard } from '@/components/Flashcard'
 import { HeartsDisplay } from '@/components/HeartsDisplay'
 import { ItemIcon } from '@/components/ItemIcon'
-import { LootReveal } from '@/components/LootReveal'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -162,6 +162,8 @@ export function StudyView() {
 
   const [sessionQueue, setSessionQueue] = useState<StudyItem[]>([])
   const [sessionState, setSessionState] = useState<SessionState>('CARD')
+  const [dungeonName, setDungeonName] = useState(generateDungeonName)
+  const [showIntro, setShowIntro] = useState(false)
   const [currentLoot, setCurrentLoot] = useState<Item | null>(null)
   const [revealed, setRevealed] = useState(false)
   const [rating, setRating] = useState(false)
@@ -191,6 +193,8 @@ export function StudyView() {
         if (cancelled) return
         setSessionQueue(batch)
         setSessionState('CARD')
+        setDungeonName(generateDungeonName())
+        setShowIntro(batch.length > 0)
         setCurrentLoot(null)
         setRevealed(false)
         setDoneCount(0)
@@ -215,6 +219,12 @@ export function StudyView() {
       timeoutsRef.current.forEach((id) => window.clearTimeout(id))
     }
   }, [])
+
+  useEffect(() => {
+    if (!showIntro) return
+    const id = window.setTimeout(() => setShowIntro(false), 1800)
+    return () => window.clearTimeout(id)
+  }, [showIntro])
 
   function spawnFeedback(text: string, type: CombatFeedback['type']) {
     feedbackSeq.current += 1
@@ -395,7 +405,7 @@ export function StudyView() {
       const foundChest =
         (grade === 3 || grade === 4) && Math.random() < CHEST_DROP_CHANCE
       if (foundChest) {
-        setCurrentLoot(pickRandomLoot())
+        setCurrentLoot(pickChestLoot())
         setSessionState('CHEST')
       } else {
         setCurrentLoot(null)
@@ -439,6 +449,13 @@ export function StudyView() {
         await finishSafeEscape()
         return
       }
+      if (currentLoot.type === 'trinket') {
+        bankRewards(0, currentLoot.value)
+        spawnFeedback(`+${currentLoot.value} 🪙`, 'loot')
+        toast.success(`Sold ${currentLoot.name}`)
+        returnToCards()
+        return
+      }
       const result = await applyItemEffect(currentLoot.id, { deferRewards: true })
       feedbackFromEffect(result)
       returnToCards()
@@ -454,7 +471,15 @@ export function StudyView() {
     if (currentLoot.type === 'trap') return
     setClaiming(true)
     try {
-      await addInventoryItem(currentLoot.id)
+      if (currentLoot.type === 'trinket') {
+        await addInventoryItem(currentLoot.id, 1, {
+          name: currentLoot.name,
+          description: currentLoot.description,
+          value: currentLoot.value,
+        })
+      } else {
+        await addInventoryItem(currentLoot.id)
+      }
       toast.success(`${currentLoot.name} added to your bag`)
       returnToCards()
     } catch {
@@ -532,22 +557,24 @@ export function StudyView() {
               ? 'It’s a trap!'
               : sessionState === 'CHEST' || sessionState === 'LOOT'
                 ? 'Treasure!'
-                : 'Dungeon Run'}
+                : dungeonName}
         </h1>
         <p>
           {safelyEscaped
             ? 'You kept the run loot and left the dungeon.'
             : dungeonVictory
-            ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'}.`
+            ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'} in the ${dungeonName}.`
             : finished
               ? 'Nothing due right now.'
               : sessionState === 'CHEST'
-                ? 'A chest appeared. Swipe up to open it.'
+                ? 'A chest appeared.'
                 : sessionState === 'LOOT' && currentLoot?.type === 'trap'
                   ? 'The chest was a mimic. You take the hit.'
-                  : sessionState === 'LOOT'
-                    ? 'Use it now or stash it in your bag.'
-                    : `${sessionQueue.length} remaining · ${doneCount} done`}
+                  : sessionState === 'LOOT' && currentLoot?.type === 'trinket'
+                    ? 'Sell it now or stash it in your bag.'
+                    : sessionState === 'LOOT'
+                      ? 'Use it now or stash it in your bag.'
+                      : `${sessionQueue.length} remaining · ${doneCount} done`}
         </p>
         {finished || safelyEscaped ? null : (
           <div className="study-hp">
@@ -560,12 +587,13 @@ export function StudyView() {
       </header>
 
       <div className="study-card-stage">
-        {sessionState === 'CHEST' ? (
-          <ChestEncounter onOpen={openChest} />
-        ) : sessionState === 'LOOT' && currentLoot ? (
-          <LootReveal
+        {currentLoot &&
+        (sessionState === 'CHEST' || sessionState === 'LOOT') ? (
+          <ChestEncounter
             item={currentLoot}
+            revealed={sessionState === 'LOOT'}
             busy={claiming}
+            onOpen={openChest}
             onUseNow={() => void handleUseLoot()}
             onAddToInventory={() => void handleStashLoot()}
             onContinue={returnToCards}
@@ -641,6 +669,12 @@ export function StudyView() {
         </div>
       </div>
       {damageFlash ? <div className="loot-damage-flash" aria-hidden /> : null}
+      {showIntro && !finished ? (
+        <div className="dungeon-intro" aria-live="polite">
+          <p className="dungeon-intro-kicker">Entering the</p>
+          <p className="dungeon-intro-name">{dungeonName}</p>
+        </div>
+      ) : null}
 
       <Dialog open={bagOpen} onOpenChange={setBagOpen}>
         <DialogContent>

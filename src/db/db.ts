@@ -75,6 +75,12 @@ export interface InventoryItem {
   id: string
   itemId: string
   quantity: number
+  /** Unique trinket title when itemId is `random_trinket`. */
+  name?: string
+  /** Unique trinket copy when itemId is `random_trinket`. */
+  description?: string
+  /** Sell value in coins when itemId is `random_trinket`. */
+  value?: number
 }
 
 export interface DailyLog {
@@ -259,3 +265,14 @@ db.version(10)
         if (typeof row.coins !== 'number') row.coins = 0
       })
   })
+
+// Unique trinkets store name/description/value on the inventory row (unindexed).
+db.version(11).stores({
+  decks: 'id, name, description, color, createdAt',
+  cards: 'id, deckId, front, romaji, back, example, createdAt',
+  reviews: 'cardId, state, due, stability, difficulty, reps',
+  stats:
+    'id, currentStreak, lastStudyDate, exp, level, hearts, maxHearts, attack, isExhausted, coins',
+  dailyLog: 'id, cardsReviewed, didStudy',
+  inventory: 'id, itemId',
+})

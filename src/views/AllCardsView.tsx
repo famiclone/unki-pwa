@@ -1,5 +1,5 @@
 import { useDeferredValue, useState } from 'react'
-import { FolderPlus, Plus, Search } from 'lucide-react'
+import { ChevronDown, FolderPlus, Plus, Search } from 'lucide-react'
 import {
   addCard,
   createDeck,
@@ -24,6 +24,7 @@ import {
   DeckFormDialog,
   type DeckFormData,
 } from '@/components/DeckFormDialog'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -48,6 +49,7 @@ export function AllCardsView() {
   const [deckDialogOpen, setDeckDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
+  const [listOpen, setListOpen] = useState(false)
 
   const selectedDeckId = deckFilter === ALL_DECKS_VALUE ? null : deckFilter
 
@@ -86,6 +88,7 @@ export function AllCardsView() {
           image,
         })
         setStatus('Card added.')
+        setListOpen(true)
       } else if (editingCard) {
         let image: Blob | File | null | undefined
         if (values.clearImage) image = null
@@ -218,17 +221,38 @@ export function AllCardsView() {
         {status ? <p className="text-sm text-foreground">{status}</p> : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-        <CardList
-          items={items}
-          decks={decks}
-          hasMore={hasMore}
-          loading={loading}
-          onLoadMore={() => void loadMore()}
-          onEdit={openEdit}
-          onReset={(card) => void handleReset(card)}
-          onDelete={(card) => void handleDelete(card)}
-          onAssigned={(card, deck) => void handleAssigned(card, deck)}
-        />
+        <button
+          type="button"
+          className="flex h-12 w-full items-center justify-between rounded-xl border border-border/80 bg-[color-mix(in_oklab,var(--card-bg)_55%,transparent)] px-4 text-left text-sm font-semibold text-foreground"
+          aria-expanded={listOpen}
+          aria-controls="hub-card-list"
+          onClick={() => setListOpen((open) => !open)}
+        >
+          <span>Cards</span>
+          <ChevronDown
+            className={cn(
+              'size-5 text-muted-foreground transition-transform',
+              listOpen && 'rotate-180',
+            )}
+            aria-hidden
+          />
+        </button>
+
+        {listOpen ? (
+          <div id="hub-card-list">
+            <CardList
+              items={items}
+              decks={decks}
+              hasMore={hasMore}
+              loading={loading}
+              onLoadMore={() => void loadMore()}
+              onEdit={openEdit}
+              onReset={(card) => void handleReset(card)}
+              onDelete={(card) => void handleDelete(card)}
+              onAssigned={(card, deck) => void handleAssigned(card, deck)}
+            />
+          </div>
+        ) : null}
       </div>
 
       <CardFormDialog
