@@ -22,3 +22,13 @@ Database Schema (Dexie):
 - Table 'reviews': cardId (string), state (string: 'new' | 'learning' | 'review'), due (number - timestamp), stability (number), difficulty (number), reps (number).
 - Table 'stats': id (string), currentStreak (number), lastStudyDate (string - 'YYYY-MM-DD').
 - Table 'dailyLog': id (string, unique as 'YYYY-MM-DD'), cardsReviewed (number), didStudy (boolean).
+
+Git Workflow & Agent Behavior Rules:
+1. Branching Strategy: DO NOT create new branches for individual features. Work exclusively in the current integration branch (e.g., `main` or a designated PR branch). Accumulate multiple features and fixes into a single Pull Request.
+2. Commits: Features and fixes MUST be differentiated by atomic commits. You MUST use the Conventional Commits specification (e.g., `feat: add streak chart`, `fix: offline sync bug`, `refactor: extract db hooks`).
+3. Versioning: The project uses Semantic Versioning (SemVer). Use `npm version <update_type>` to bump the version and automatically generate Git tags (vX.Y.Z).
+4. Pre-Push Documentation Protocol: Before executing ANY `git push` command, you MUST automatically complete the following sequence:
+   - Analyze all new features and changes since the last push.
+   - Update `README.md` to reflect current functionality, setup instructions, or architectural changes.
+   - Create a commit for the documentation update.
+   - Only after README is updated, push the code and tags to origin.
