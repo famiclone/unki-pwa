@@ -120,7 +120,7 @@ export function speakText(text: string, lang?: string): void {
   window.speechSynthesis.speak(utterance)
 }
 
-/** Speak a short answer on card flip; ignore empty or long text. */
+/** Speak a short prompt on card flip; ignore empty or long text. */
 export function speakIfShort(
   text: string,
   lang?: string,

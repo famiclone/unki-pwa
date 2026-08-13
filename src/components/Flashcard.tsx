@@ -72,7 +72,7 @@ export function Flashcard({
 
   function handleFlip() {
     if (revealed) cancelSpeech()
-    else speakIfShort(card.back)
+    else speakIfShort(card.front)
     onFlip()
   }
 
