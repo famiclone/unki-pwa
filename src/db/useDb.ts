@@ -4,6 +4,17 @@ import { db, type Card, type Deck, type Review, type ReviewState } from './db'
 
 export type CreateDeckInput = {
   name: string
+  description?: string
+  /** Cover image as Blob or File; stored directly in IndexedDB. */
+  image?: Blob | File | null
+}
+
+export type UpdateDeckInput = {
+  id: string
+  name: string
+  description?: string
+  /** Pass a Blob/File to replace; null to clear; undefined to keep. */
+  image?: Blob | File | null
 }
 
 export type AddCardInput = {
@@ -33,6 +44,8 @@ export type CardsPageQuery = {
   limit: number
   search?: string
   state?: CardStateFilter
+  /** When set, only cards belonging to this deck. */
+  deckId?: string | null
 }
 
 export type CardsPageResult = {
@@ -48,14 +61,67 @@ async function ensureDefaultDeck(): Promise<Deck> {
   return createDeck({ name: DEFAULT_DECK_NAME })
 }
 
-async function createDeck({ name }: CreateDeckInput): Promise<Deck> {
-  const deck: Deck = {
-    id: crypto.randomUUID(),
+function applyDeckFields(
+  deck: Deck,
+  {
+    name,
+    description,
+    image,
+  }: {
+    name: string
+    description?: string
+    image?: Blob | File | null
+  },
+): Deck {
+  const next: Deck = {
+    ...deck,
     name: name.trim(),
-    createdAt: Date.now(),
   }
+
+  if (description !== undefined) {
+    const trimmed = description.trim()
+    if (trimmed) next.description = trimmed
+    else delete next.description
+  }
+
+  if (image === null) {
+    delete next.image
+  } else if (image instanceof Blob) {
+    next.image = image
+  }
+
+  return next
+}
+
+async function createDeck({
+  name,
+  description,
+  image,
+}: CreateDeckInput): Promise<Deck> {
+  const deck = applyDeckFields(
+    {
+      id: crypto.randomUUID(),
+      name: '',
+      createdAt: Date.now(),
+    },
+    { name, description, image },
+  )
   await db.decks.add(deck)
   return deck
+}
+
+async function updateDeck({
+  id,
+  name,
+  description,
+  image,
+}: UpdateDeckInput): Promise<Deck> {
+  const existing = await db.decks.get(id)
+  if (!existing) throw new Error('Deck not found')
+
+  const next = applyDeckFields(existing, { name, description, image })
+  await db.decks.put(next)
+  return next
 }
 
 async function deleteDeck(deckId: string): Promise<void> {
@@ -140,6 +206,17 @@ async function updateCard({
   return next
 }
 
+async function assignCardToDeck(cardId: string, deckId: string): Promise<Card> {
+  const existing = await db.cards.get(cardId)
+  if (!existing) throw new Error('Card not found')
+  const deck = await db.decks.get(deckId)
+  if (!deck) throw new Error('Deck not found')
+
+  const next: Card = { ...existing, deckId }
+  await db.cards.put(next)
+  return next
+}
+
 async function deleteCard(cardId: string): Promise<void> {
   await db.transaction('rw', db.cards, db.reviews, async () => {
     await db.reviews.delete(cardId)
@@ -168,27 +245,44 @@ function matchesSearch(card: Card, search: string): boolean {
   )
 }
 
+async function pageFromCards(
+  cards: Card[],
+  offset: number,
+  limit: number,
+): Promise<CardsPageResult> {
+  const slice = cards.slice(offset, offset + limit)
+  const reviews = await db.reviews.bulkGet(slice.map((card) => card.id))
+  return {
+    items: slice.map((card, index) => ({
+      card,
+      review: reviews[index] ?? null,
+    })),
+    hasMore: offset + limit < cards.length,
+  }
+}
+
 /**
- * Paginated cards from Dexie using offset/limit, with optional state + text filters.
+ * Paginated cards from Dexie using offset/limit, with optional state, deck, and text filters.
  */
 export async function getCardsPage({
   offset,
   limit,
   search = '',
   state = 'all',
+  deckId,
 }: CardsPageQuery): Promise<CardsPageResult> {
   const wantsSearch = search.trim().length > 0
   const wantsState = state !== 'all'
+  const wantsDeck = Boolean(deckId)
 
-  // Fast path: pure pagination via Dexie offset/limit.
-  if (!wantsSearch && !wantsState) {
+  // Fast path: all decks, no extra filters — Dexie offset/limit.
+  if (!wantsSearch && !wantsState && !wantsDeck) {
     const cards = await db.cards
       .orderBy('createdAt')
       .reverse()
       .offset(offset)
       .limit(limit + 1)
       .toArray()
-
     const page = cards.slice(0, limit)
     const reviews = await db.reviews.bulkGet(page.map((card) => card.id))
     return {
@@ -200,11 +294,17 @@ export async function getCardsPage({
     }
   }
 
-  // Filtered path: scan newest-first, then apply offset/limit on matches.
-  const allCards = await db.cards.orderBy('createdAt').reverse().toArray()
+  const newest = wantsDeck
+    ? (await db.cards.where('deckId').equals(deckId!).sortBy('createdAt')).reverse()
+    : await db.cards.orderBy('createdAt').reverse().toArray()
+
+  if (!wantsSearch && !wantsState) {
+    return pageFromCards(newest, offset, limit)
+  }
+
   const matched: Card[] = []
 
-  for (const card of allCards) {
+  for (const card of newest) {
     if (!matchesSearch(card, search)) continue
 
     if (wantsState) {
@@ -216,16 +316,7 @@ export async function getCardsPage({
     matched.push(card)
   }
 
-  const page = matched.slice(offset, offset + limit)
-  const reviews = await db.reviews.bulkGet(page.map((card) => card.id))
-
-  return {
-    items: page.map((card, index) => ({
-      card,
-      review: reviews[index] ?? null,
-    })),
-    hasMore: offset + limit < matched.length,
-  }
+  return pageFromCards(matched, offset, limit)
 }
 
 /**
@@ -242,9 +333,11 @@ export function useDb(deckId?: string) {
     decks: decks ?? [],
     cards: cards ?? [],
     createDeck,
+    updateDeck,
     deleteDeck,
     addCard,
     updateCard,
+    assignCardToDeck,
     deleteCard,
     resetCardProgress,
     getCardsByDeck,
@@ -255,9 +348,11 @@ export function useDb(deckId?: string) {
 
 export {
   createDeck,
+  updateDeck,
   deleteDeck,
   addCard,
   updateCard,
+  assignCardToDeck,
   deleteCard,
   resetCardProgress,
   getCardsByDeck,

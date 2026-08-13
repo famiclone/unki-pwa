@@ -117,6 +117,7 @@ export function DeckEditorView() {
 
       <header className="view-header">
         <h1>{deck.name}</h1>
+        {deck.description ? <p>{deck.description}</p> : null}
         <p>
           {cards.length === 1 ? '1 card' : `${cards.length} cards`} in this deck.
         </p>

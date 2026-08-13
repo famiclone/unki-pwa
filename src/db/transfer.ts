@@ -32,6 +32,9 @@ export type ExportedDeckJson = {
   deck: {
     name: string
     createdAt: number
+    description?: string
+    /** Relative path inside the zip (e.g. images/deck.webp). */
+    image?: string
   }
   cards: ExportedCard[]
   /** Global streak stats (export v2+). */
@@ -62,15 +65,55 @@ function sanitizeFilename(name: string): string {
   return cleaned.slice(0, 60) || 'deck'
 }
 
+function mimeFromExtension(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase()
+  switch (ext) {
+    case 'png':
+      return 'image/png'
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg'
+    case 'gif':
+      return 'image/gif'
+    case 'webp':
+      return 'image/webp'
+    case 'svg':
+      return 'image/svg+xml'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
+async function readZipImage(zip: JSZip, path: string): Promise<Blob | undefined> {
+  const imageFile = zip.file(path)
+  if (!imageFile) return undefined
+  const buffer = await imageFile.async('arraybuffer')
+  return new Blob([buffer], { type: mimeFromExtension(path) })
+}
+
+type ZipDeckMeta = {
+  name: string
+  createdAt: number
+  description?: string
+  image?: Blob
+}
+
 async function buildCardsZip(
   cards: Card[],
-  deckMeta: { name: string; createdAt: number },
+  deckMeta: ZipDeckMeta,
   includeStats: boolean,
 ): Promise<Blob> {
   const zip = new JSZip()
   const imagesFolder = zip.folder('images')
   if (!imagesFolder) {
     throw new Error('Could not create images folder in zip')
+  }
+
+  let deckImagePath: string | undefined
+  if (deckMeta.image) {
+    const ext = extensionForMime(deckMeta.image.type || '')
+    deckImagePath = `images/deck.${ext}`
+    imagesFolder.file(`deck.${ext}`, deckMeta.image)
   }
 
   const exportedCards: ExportedCard[] = []
@@ -96,7 +139,12 @@ async function buildCardsZip(
 
   const payload: ExportedDeckJson = {
     version: DECK_EXPORT_VERSION,
-    deck: deckMeta,
+    deck: {
+      name: deckMeta.name,
+      createdAt: deckMeta.createdAt,
+      ...(deckMeta.description ? { description: deckMeta.description } : {}),
+      ...(deckImagePath ? { image: deckImagePath } : {}),
+    },
     cards: exportedCards,
   }
 
@@ -135,6 +183,8 @@ export async function exportDeck(deckId: string): Promise<void> {
     {
       name: deck.name,
       createdAt: deck.createdAt,
+      ...(deck.description ? { description: deck.description } : {}),
+      ...(deck.image ? { image: deck.image } : {}),
     },
     true,
   )
@@ -248,10 +298,20 @@ export async function importDeck(file: File): Promise<Deck> {
   }
 
   const now = Date.now()
+  let deckImage: Blob | undefined
+  if (raw.deck.image && typeof raw.deck.image === 'string') {
+    deckImage = await readZipImage(zip, raw.deck.image)
+  }
+
+  const importedDescription =
+    typeof raw.deck.description === 'string' ? raw.deck.description.trim() : ''
+
   const newDeck: Deck = {
     id: crypto.randomUUID(),
     name: raw.deck.name.trim() || 'Imported deck',
     createdAt: now,
+    ...(importedDescription ? { description: importedDescription } : {}),
+    ...(deckImage ? { image: deckImage } : {}),
   }
 
   const cards: Card[] = []
@@ -265,27 +325,10 @@ export async function importDeck(file: File): Promise<Deck> {
       continue
     }
 
-    let image: Blob | undefined
-    if (exported.image && typeof exported.image === 'string') {
-      const imageFile = zip.file(exported.image)
-      if (imageFile) {
-        const buffer = await imageFile.async('arraybuffer')
-        const ext = exported.image.split('.').pop()?.toLowerCase()
-        const type =
-          ext === 'png'
-            ? 'image/png'
-            : ext === 'jpg' || ext === 'jpeg'
-              ? 'image/jpeg'
-              : ext === 'gif'
-                ? 'image/gif'
-                : ext === 'webp'
-                  ? 'image/webp'
-                  : ext === 'svg'
-                    ? 'image/svg+xml'
-                    : 'application/octet-stream'
-        image = new Blob([buffer], { type })
-      }
-    }
+    const image =
+      exported.image && typeof exported.image === 'string'
+        ? await readZipImage(zip, exported.image)
+        : undefined
 
     const card: Card = {
       id: crypto.randomUUID(),

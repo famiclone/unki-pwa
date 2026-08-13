@@ -1,32 +1,53 @@
-# React + TypeScript + Vite
+# Unki
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend — decks, cards, images, reviews, and streaks live in IndexedDB via Dexie.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Vite + React + TypeScript
+- Tailwind CSS + shadcn/ui
+- Dexie.js (IndexedDB)
+- SM-2 spaced repetition
+- `vite-plugin-pwa` for installable offline use
 
-## React Compiler
+## Scripts
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
+npm run build
+npm run preview
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Releases (SemVer)
+
+Bump version and create a `vX.Y.Z` git tag. `npm version` also runs the `version` lifecycle script, which updates `CHANGELOG.md` from Conventional Commits, stages it, then creates one release commit + tag:
+
+```bash
+npm run release:patch   # 0.0.0 → 0.0.1
+npm run release:minor   # 0.0.1 → 0.1.0
+npm run release:major   # 0.1.0 → 1.0.0
+npm run push:all        # push branch + tags
+```
+
+## Git workflow
+
+Work on the current integration branch (`develop` / `main`). Use [Conventional Commits](https://www.conventionalcommits.org/):
+
+- `feat:` new feature
+- `fix:` bug fix
+- `docs:` documentation
+- `chore:` tooling / deps
+- `refactor:` no behavior change
+
+Husky + commitlint reject non-conventional `commit-msg` values.
+
+### Pre-push README check
+
+Pushes fail unless `README.md` changed in the unpushed commits. Update the README, commit it, then push.
+
+Bypass only when necessary:
+
+```bash
+SKIP_README_CHECK=1 git push
+```

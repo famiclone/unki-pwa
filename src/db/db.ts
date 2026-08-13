@@ -16,6 +16,9 @@ export const GLOBAL_STATS_ID = 'global' as const
 export interface Deck {
   id: string
   name: string
+  description?: string
+  /** Optional cover image stored as a Blob in IndexedDB. */
+  image?: Blob
   createdAt: number
 }
 
@@ -93,6 +96,15 @@ db.version(3).stores({
 // Per-day review log for the week chart (id = local YYYY-MM-DD).
 db.version(4).stores({
   decks: 'id, name, createdAt',
+  cards: 'id, deckId, front, romaji, back, example, createdAt',
+  reviews: 'cardId, state, due, stability, difficulty, reps',
+  stats: 'id, currentStreak, lastStudyDate',
+  dailyLog: 'id, cardsReviewed, didStudy',
+})
+
+// Optional deck description and cover image (Blob fields remain unlisted).
+db.version(5).stores({
+  decks: 'id, name, description, createdAt',
   cards: 'id, deckId, front, romaji, back, example, createdAt',
   reviews: 'cardId, state, due, stability, difficulty, reps',
   stats: 'id, currentStreak, lastStudyDate',

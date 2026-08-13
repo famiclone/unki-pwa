@@ -1,27 +1,31 @@
 import { useEffect } from 'react'
 import { useInView } from 'react-intersection-observer'
-import type { Card, Review } from '@/db'
+import type { Card, Deck, Review } from '@/db'
 import type { InfiniteCardItem } from '@/hooks/useInfiniteCards'
 import { CardRow } from '@/components/CardRow'
 
 type CardListProps = {
   items: InfiniteCardItem[]
+  decks: Deck[]
   hasMore: boolean
   loading: boolean
   onLoadMore: () => void
   onEdit: (card: Card) => void
   onReset: (card: Card) => void
   onDelete: (card: Card) => void
+  onAssigned?: (card: Card, deck: Deck) => void
 }
 
 export function CardList({
   items,
+  decks,
   hasMore,
   loading,
   onLoadMore,
   onEdit,
   onReset,
   onDelete,
+  onAssigned,
 }: CardListProps) {
   const { ref, inView } = useInView({
     rootMargin: '200px 0px',
@@ -49,9 +53,11 @@ export function CardList({
           key={card.id}
           card={card}
           review={review as Review | null}
+          decks={decks}
           onEdit={onEdit}
           onReset={onReset}
           onDelete={onDelete}
+          onAssigned={onAssigned}
         />
       ))}
       <li ref={ref} className="py-3 text-center text-xs text-muted-foreground">

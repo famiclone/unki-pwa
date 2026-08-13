@@ -1,34 +1,78 @@
-import { MoreHorizontal, Pencil, RotateCcw, Trash2 } from 'lucide-react'
-import type { Card, Review } from '@/db'
+import { useState } from 'react'
+import {
+  Check,
+  FolderInput,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react'
+import {
+  assignCardToDeck,
+  createDeck,
+  type Card,
+  type Deck,
+  type Review,
+} from '@/db'
 import { useObjectUrl } from '@/hooks/useObjectUrl'
 import { getSrsProgress } from '@/lib/srsProgress'
 import { SrsBattery } from '@/components/SrsBattery'
 import { SpeakButton } from '@/components/SpeakButton'
+import {
+  DeckFormDialog,
+  type DeckFormData,
+} from '@/components/DeckFormDialog'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
 type CardRowProps = {
   card: Card
   review: Review | null
+  decks: Deck[]
   onEdit: (card: Card) => void
   onReset: (card: Card) => void
   onDelete: (card: Card) => void
+  onAssigned?: (card: Card, deck: Deck) => void
 }
 
 export function CardRow({
   card,
   review,
+  decks,
   onEdit,
   onReset,
   onDelete,
+  onAssigned,
 }: CardRowProps) {
   const imageUrl = useObjectUrl(card.image)
   const progress = getSrsProgress(review)
+  const [deckDialogOpen, setDeckDialogOpen] = useState(false)
+
+  async function handleAssign(deck: Deck) {
+    if (card.deckId === deck.id) return
+    const updated = await assignCardToDeck(card.id, deck.id)
+    onAssigned?.(updated, deck)
+  }
+
+  async function handleCreateAndAssign(deckData: DeckFormData) {
+    const deck = await createDeck({
+      name: deckData.name,
+      description: deckData.description,
+      image: deckData.image,
+    })
+    const updated = await assignCardToDeck(card.id, deck.id)
+    onAssigned?.(updated, deck)
+  }
 
   return (
     <li className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-card-foreground">
@@ -89,6 +133,32 @@ export function CardRow({
             <Pencil />
             Edit
           </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <FolderInput />
+              Assign to Deck
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+              <DropdownMenuItem
+                onSelect={() => {
+                  requestAnimationFrame(() => setDeckDialogOpen(true))
+                }}
+              >
+                <Plus />
+                Create New Deck...
+              </DropdownMenuItem>
+              {decks.length > 0 ? <DropdownMenuSeparator /> : null}
+              {decks.map((deck) => (
+                <DropdownMenuItem
+                  key={deck.id}
+                  onSelect={() => void handleAssign(deck)}
+                >
+                  {card.deckId === deck.id ? <Check /> : <span className="size-4" />}
+                  <span className="truncate">{deck.name}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuItem onSelect={() => onReset(card)}>
             <RotateCcw />
             Reset
@@ -102,6 +172,12 @@ export function CardRow({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <DeckFormDialog
+        isOpen={deckDialogOpen}
+        onClose={() => setDeckDialogOpen(false)}
+        onSave={handleCreateAndAssign}
+      />
     </li>
   )
 }
