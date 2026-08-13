@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
@@ -73,7 +73,11 @@ function StudyFlashcard({
 }
 
 export function StudyView() {
-  const { deckId } = useParams<{ deckId?: string }>()
+  const { deckId: deckIdFromPath } = useParams<{ deckId?: string }>()
+  const [searchParams] = useSearchParams()
+  const deckIdFromQuery = searchParams.get('deckId')
+  const deckId = deckIdFromPath || deckIdFromQuery || undefined
+
   const deck = useLiveQuery(async () => {
     if (!deckId) return null
     return (await db.decks.get(deckId)) ?? null

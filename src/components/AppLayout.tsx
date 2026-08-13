@@ -1,5 +1,5 @@
 import { Link, Outlet } from 'react-router-dom'
-import { BookOpen, LayoutDashboard, Layers } from 'lucide-react'
+import { LayoutDashboard, Layers, Library } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { StreakBadge } from '@/components/StreakBadge'
 
@@ -24,17 +24,17 @@ export function AppLayout() {
             Dashboard
           </Link>
           <Link
+            to="/decks"
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground no-underline hover:bg-accent hover:text-foreground"
+          >
+            <Library size={16} aria-hidden />
+            Decks
+          </Link>
+          <Link
             to="/"
             className="rounded-md px-2.5 py-1.5 text-sm text-muted-foreground no-underline hover:bg-accent hover:text-foreground"
           >
             Cards
-          </Link>
-          <Link
-            to="/study"
-            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground no-underline hover:bg-accent hover:text-foreground"
-          >
-            <BookOpen size={16} aria-hidden />
-            Study
           </Link>
           <ThemeToggle />
         </nav>

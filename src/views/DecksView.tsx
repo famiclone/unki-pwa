@@ -1,30 +1,51 @@
-import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
+import { type ChangeEvent, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, Download, Plus, Trash2, Upload } from 'lucide-react'
-import { exportDeck, importDeck, useDb } from '../db'
+import { BookOpen, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
+import { exportDeck, importDeck, useDb, type Deck } from '../db'
+import {
+  DeckFormDialog,
+  type DeckFormData,
+} from '../components/DeckFormDialog'
 import './DecksView.css'
 
 export function DecksView() {
-  const { decks, createDeck, deleteDeck } = useDb()
-  const [name, setName] = useState('')
-  const [saving, setSaving] = useState(false)
+  const { decks, createDeck, updateDeck, deleteDeck } = useDb()
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingDeck, setEditingDeck] = useState<Deck | null>(null)
   const [importing, setImporting] = useState(false)
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!name.trim() || saving) return
+  function openCreate() {
+    setEditingDeck(null)
+    setDialogOpen(true)
+  }
 
-    setSaving(true)
+  function openEdit(deck: Deck) {
+    setEditingDeck(deck)
+    setDialogOpen(true)
+  }
+
+  async function handleSave(deckData: DeckFormData) {
     setStatus(null)
-    try {
-      await createDeck({ name })
-      setName('')
-    } finally {
-      setSaving(false)
+    if (editingDeck) {
+      await updateDeck({
+        id: editingDeck.id,
+        name: deckData.name,
+        description: deckData.description ?? '',
+        image: deckData.image,
+      })
+      setStatus('Deck updated.')
+      return
     }
+
+    await createDeck({
+      name: deckData.name,
+      description: deckData.description,
+      image: deckData.image,
+    })
+    setStatus('Deck created.')
   }
 
   async function handleDelete(deckId: string, deckName: string) {
@@ -73,6 +94,10 @@ export function DecksView() {
       </header>
 
       <div className="header-actions">
+        <button type="button" className="secondary-btn" onClick={openCreate}>
+          <Plus size={18} aria-hidden />
+          New deck
+        </button>
         <button
           type="button"
           className="secondary-btn"
@@ -93,25 +118,6 @@ export function DecksView() {
 
       {status ? <p className="status-message">{status}</p> : null}
 
-      <form className="create-deck-form" onSubmit={handleCreate}>
-        <label htmlFor="deck-name">New deck</label>
-        <div className="create-deck-row">
-          <input
-            id="deck-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Genki Lesson 1"
-            autoComplete="off"
-            required
-          />
-          <button type="submit" disabled={saving || !name.trim()}>
-            <Plus size={18} aria-hidden />
-            Create
-          </button>
-        </div>
-      </form>
-
       {decks.length === 0 ? (
         <p className="empty-state">No decks yet. Create one to get started.</p>
       ) : (
@@ -120,11 +126,23 @@ export function DecksView() {
             <li key={deck.id} className="deck-item">
               <Link to={`/decks/${deck.id}`} className="deck-link">
                 <span className="deck-name">{deck.name}</span>
+                {deck.description ? (
+                  <span className="deck-meta">{deck.description}</span>
+                ) : null}
                 <span className="deck-meta">
                   {new Date(deck.createdAt).toLocaleDateString()}
                 </span>
               </Link>
               <div className="deck-actions">
+                <button
+                  type="button"
+                  className="study-link"
+                  aria-label={`Edit ${deck.name}`}
+                  title="Edit"
+                  onClick={() => openEdit(deck)}
+                >
+                  <Pencil size={18} />
+                </button>
                 <button
                   type="button"
                   className="study-link"
@@ -156,6 +174,16 @@ export function DecksView() {
           ))}
         </ul>
       )}
+
+      <DeckFormDialog
+        isOpen={dialogOpen}
+        deck={editingDeck}
+        onClose={() => {
+          setDialogOpen(false)
+          setEditingDeck(null)
+        }}
+        onSave={handleSave}
+      />
     </section>
   )
 }

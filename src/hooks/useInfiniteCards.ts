@@ -9,7 +9,11 @@ const PAGE_SIZE = 20
 
 export type InfiniteCardItem = CardsPageResult['items'][number]
 
-export function useInfiniteCards(search: string, state: CardStateFilter) {
+export function useInfiniteCards(
+  search: string,
+  state: CardStateFilter,
+  deckId?: string | null,
+) {
   const [items, setItems] = useState<InfiniteCardItem[]>([])
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(true)
@@ -27,6 +31,7 @@ export function useInfiniteCards(search: string, state: CardStateFilter) {
         limit: PAGE_SIZE,
         search,
         state,
+        deckId,
       })
       if (id !== requestId.current) return
       setItems(page.items)
@@ -41,7 +46,7 @@ export function useInfiniteCards(search: string, state: CardStateFilter) {
     } finally {
       if (id === requestId.current) setLoading(false)
     }
-  }, [search, state])
+  }, [search, state, deckId])
 
   useEffect(() => {
     void resetAndLoad()
@@ -58,6 +63,7 @@ export function useInfiniteCards(search: string, state: CardStateFilter) {
         limit: PAGE_SIZE,
         search,
         state,
+        deckId,
       })
       if (id !== requestId.current) return
       setItems((prev) => [...prev, ...page.items])
@@ -69,7 +75,7 @@ export function useInfiniteCards(search: string, state: CardStateFilter) {
     } finally {
       if (id === requestId.current) setLoading(false)
     }
-  }, [hasMore, loading, offset, search, state])
+  }, [hasMore, loading, offset, search, state, deckId])
 
   const refresh = useCallback(async () => {
     await resetAndLoad()
