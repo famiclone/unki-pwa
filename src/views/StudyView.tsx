@@ -57,7 +57,7 @@ function StudyFlashcard({
   deckColor?: string
 }) {
   return (
-    <div className="study-flashcard-stack">
+    <div className="study-flashcard-stack touch-pan-y">
       <Flashcard
         card={item.card}
         revealed={revealed}

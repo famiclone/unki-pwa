@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { BookOpen, Plus } from 'lucide-react'
 import { useDailyProgress } from '@/hooks/useDailyProgress'
+import { CardStatBlocks } from '@/components/StatsDashboard'
 import { Button } from '@/components/ui/button'
 
 type DailyProgressProps = {
@@ -9,7 +10,7 @@ type DailyProgressProps = {
 
 export function DailyProgress({ onAddCards }: DailyProgressProps) {
   const navigate = useNavigate()
-  const { cardsToStudy, cardsStudiedToday, loading } = useDailyProgress()
+  const { cardsToStudy, loading } = useDailyProgress()
 
   if (loading) {
     return (
@@ -17,7 +18,9 @@ export function DailyProgress({ onAddCards }: DailyProgressProps) {
         aria-label="Daily progress"
         className="rounded-xl border border-border/80 bg-[color-mix(in_oklab,var(--card-bg)_55%,transparent)] px-4 py-5 backdrop-blur-[2px]"
       >
-        <p className="m-0 text-sm text-muted-foreground">Рахуємо картки на сьогодні…</p>
+        <p className="m-0 text-sm text-muted-foreground">
+          Checking today’s queue…
+        </p>
       </section>
     )
   }
@@ -46,17 +49,8 @@ export function DailyProgress({ onAddCards }: DailyProgressProps) {
   }
 
   return (
-    <section
-      aria-label="Daily progress"
-      className="space-y-4 rounded-xl border border-border/80 bg-[color-mix(in_oklab,var(--card-bg)_55%,transparent)] px-4 py-5 backdrop-blur-[2px]"
-    >
-      <p className="m-0 text-sm leading-relaxed text-foreground sm:text-base">
-        <span className="font-semibold">До вивчення на сьогодні:</span>{' '}
-        <span className="tabular-nums">{cardsToStudy}</span>
-        <span className="text-muted-foreground"> | </span>
-        <span className="font-semibold">Вже вивчено:</span>{' '}
-        <span className="tabular-nums">{cardsStudiedToday}</span>
-      </p>
+    <section aria-label="Daily progress" className="space-y-4">
+      <CardStatBlocks />
       <Button
         type="button"
         className="h-16 w-full rounded-xl text-xl shadow-lg"

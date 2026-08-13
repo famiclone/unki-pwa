@@ -6,6 +6,7 @@ import {
   getContrastYIQ,
   normalizeHexColor,
 } from '@/lib/colorUtils'
+import { cancelSpeech, speakIfShort } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import styles from './Flashcard.module.css'
 
@@ -41,19 +42,12 @@ export function Flashcard({
   onSwipeRight,
 }: FlashcardProps) {
   const imageUrl = useObjectUrl(card.image)
-  const sideClass = revealed ? styles.side1 : styles.side0
-  const color = deckColor
-    ? normalizeHexColor(deckColor)
-    : revealed
-      ? undefined
-      : DEFAULT_DECK_COLOR
-  const contrast = color ? getContrastYIQ(color) : undefined
-  const flashVars = color
-    ? ({
-        '--flash-bg': color,
-        '--flash-fg': contrast === 'text-black' ? '#111111' : '#ffffff',
-      } as CSSProperties)
-    : undefined
+  const frontColor = normalizeHexColor(deckColor ?? DEFAULT_DECK_COLOR)
+  const contrast = getContrastYIQ(frontColor)
+  const flashVars = {
+    '--flash-bg': frontColor,
+    '--flash-fg': contrast === 'text-black' ? '#111111' : '#ffffff',
+  } as CSSProperties
 
   const [offsetX, setOffsetX] = useState(0)
   const [dragging, setDragging] = useState(false)
@@ -71,6 +65,16 @@ export function Flashcard({
     dragRef.current = false
     offsetRef.current = 0
   }, [card.id])
+
+  useEffect(() => {
+    return () => cancelSpeech()
+  }, [card.id])
+
+  function handleFlip() {
+    if (revealed) cancelSpeech()
+    else speakIfShort(card.back)
+    onFlip()
+  }
 
   function commitSwipe(direction: 'left' | 'right') {
     setExiting(direction)
@@ -120,7 +124,7 @@ export function Flashcard({
     }
 
     if (!dragRef.current) {
-      if (!cancelled) onFlip()
+      if (!cancelled) handleFlip()
       return
     }
 
@@ -177,7 +181,7 @@ export function Flashcard({
         </span>
       ) : null}
       <div
-        className={cn(styles.wrapper, sideClass, contrast)}
+        className={cn(styles.wrapper, revealed && styles.flipped)}
         style={flashVars}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -186,7 +190,7 @@ export function Flashcard({
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
-            onFlip()
+            handleFlip()
           }
         }}
         role="button"
@@ -197,7 +201,7 @@ export function Flashcard({
             : 'Flashcard front — click to flip'
         }
       >
-        {!revealed ? (
+        <div className={cn(styles.front, contrast)}>
           <div className={styles.face}>
             {imageUrl ? (
               <img src={imageUrl} alt="" className={styles.image} />
@@ -205,13 +209,15 @@ export function Flashcard({
             <p className={styles.frontText}>{card.front}</p>
             {card.romaji ? <p className={styles.romaji}>{card.romaji}</p> : null}
           </div>
-        ) : (
+          {meta ? <div className={styles.meta}>{meta}</div> : null}
+        </div>
+        <div className={styles.back}>
           <div className={styles.backFace}>
             <p className={styles.backText}>{card.back}</p>
             {card.example ? <p className={styles.example}>{card.example}</p> : null}
           </div>
-        )}
-        {meta ? <div className={styles.meta}>{meta}</div> : null}
+          {meta ? <div className={styles.meta}>{meta}</div> : null}
+        </div>
       </div>
     </div>
   )
