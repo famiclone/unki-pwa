@@ -26,7 +26,11 @@ npm install
 npm run dev
 npm run build
 npm run preview
+npm run convert:anki -- deck.apkg              # Anki .apkg → Unki zip
+npm run convert:anki -- deck.apkg out.unki.zip
 ```
+
+`convert:anki` reads `collection.anki2` / `collection.anki21`, maps note fields to `front` / `romaji` / `back` / `example`, copies `<img>` files into `images/`, and writes a v2 `deck.json` zip for PWA import.
 
 ## Releases (SemVer)
 
