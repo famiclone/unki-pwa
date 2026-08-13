@@ -16,14 +16,22 @@ export function WeekProgressChart() {
       </p>
       <p className="m-0 mt-1 text-sm text-muted-foreground">This week</p>
 
-      <div className="mt-4 flex items-end justify-between gap-2">
+      <div className="mt-4 flex items-end justify-between gap-1.5 sm:gap-2">
         {days.map((day) => {
-          const height = day.cardsReviewed === 0 ? 8 : Math.max(12, Math.round((day.cardsReviewed / maxCount) * 72))
+          const height =
+            day.cardsReviewed === 0
+              ? 8
+              : Math.max(16, Math.round((day.cardsReviewed / maxCount) * 72))
 
           return (
             <div
               key={day.date}
-              className="flex min-w-0 flex-1 flex-col items-center gap-1.5"
+              className={cn(
+                'flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-lg px-0.5 pb-1 pt-0.5',
+                day.isStreakDay &&
+                  'bg-[color-mix(in_oklab,var(--unki-primary)_14%,transparent)]',
+                day.isToday && !day.isStreakDay && 'bg-muted/40',
+              )}
             >
               <div className="flex h-5 items-center justify-center">
                 {day.isToday && streak > 0 ? (
@@ -38,7 +46,7 @@ export function WeekProgressChart() {
               </div>
               <div
                 className="flex h-[72px] w-full items-end justify-center"
-                title={`${day.dateLabel}: ${day.cardsReviewed} reviewed`}
+                title={`${day.dateLabel} ${day.calendarDay}: ${day.cardsReviewed} reviewed`}
               >
                 <div
                   className={cn(
@@ -50,7 +58,28 @@ export function WeekProgressChart() {
                   style={{ height: `${height}px` }}
                 />
               </div>
-              <span className="text-[11px] text-muted-foreground">{day.dateLabel}</span>
+              <div className="flex flex-col items-center leading-tight">
+                <span
+                  className={cn(
+                    'text-[11px] font-semibold tabular-nums',
+                    day.isStreakDay
+                      ? 'text-[var(--unki-primary)]'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {day.calendarDay}
+                </span>
+                <span
+                  className={cn(
+                    'text-[10px]',
+                    day.isStreakDay
+                      ? 'text-[var(--unki-primary)]/80'
+                      : 'text-muted-foreground/80',
+                  )}
+                >
+                  {day.dateLabel}
+                </span>
+              </div>
             </div>
           )
         })}

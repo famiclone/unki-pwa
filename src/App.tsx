@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
 import { AllCardsView } from './views/AllCardsView'
+import { DashboardView } from './views/DashboardView'
 import { StudyView } from './views/StudyView'
 
 /** Vite BASE_URL ends with `/`; React Router basename should not. */
@@ -13,6 +14,7 @@ export default function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route index element={<AllCardsView />} />
+          <Route path="dashboard" element={<DashboardView />} />
           <Route path="study" element={<StudyView />} />
           <Route path="decks/:deckId/study" element={<StudyView />} />
           <Route path="*" element={<Navigate to="/" replace />} />

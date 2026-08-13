@@ -11,6 +11,8 @@ export type WeekDayProgress = {
   date: string
   /** Short weekday label (e.g. Mon). */
   dateLabel: string
+  /** Calendar day of month (1–31). */
+  calendarDay: number
   cardsReviewed: number
   isStreakDay: boolean
   isToday: boolean
@@ -52,6 +54,7 @@ async function loadPastWeekProgress(now = new Date()): Promise<PastWeekProgress>
     return {
       date: id,
       dateLabel: WEEKDAY_LABELS[date.getDay()] ?? '',
+      calendarDay: date.getDate(),
       cardsReviewed,
       isStreakDay: didStudy,
       isToday: id === today,
@@ -73,6 +76,7 @@ function emptyWeek(now = new Date()): WeekDayProgress[] {
     return {
       date: id,
       dateLabel: WEEKDAY_LABELS[date.getDay()] ?? '',
+      calendarDay: date.getDate(),
       cardsReviewed: 0,
       isStreakDay: false,
       isToday: id === today,
