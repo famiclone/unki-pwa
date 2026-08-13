@@ -52,11 +52,19 @@ export interface Stats {
   lastStudyDate: string
 }
 
+export interface DailyLog {
+  /** Local calendar date as YYYY-MM-DD. */
+  id: string
+  cardsReviewed: number
+  didStudy: boolean
+}
+
 export type UnkiDB = Dexie & {
   decks: EntityTable<Deck, 'id'>
   cards: EntityTable<Card, 'id'>
   reviews: EntityTable<Review, 'cardId'>
   stats: EntityTable<Stats, 'id'>
+  dailyLog: EntityTable<DailyLog, 'id'>
 }
 
 export const db = new Dexie('UnkiDB') as UnkiDB
@@ -80,4 +88,13 @@ db.version(3).stores({
   cards: 'id, deckId, front, romaji, back, example, createdAt',
   reviews: 'cardId, state, due, stability, difficulty, reps',
   stats: 'id, currentStreak, lastStudyDate',
+})
+
+// Per-day review log for the week chart (id = local YYYY-MM-DD).
+db.version(4).stores({
+  decks: 'id, name, createdAt',
+  cards: 'id, deckId, front, romaji, back, example, createdAt',
+  reviews: 'cardId, state, due, stability, difficulty, reps',
+  stats: 'id, currentStreak, lastStudyDate',
+  dailyLog: 'id, cardsReviewed, didStudy',
 })

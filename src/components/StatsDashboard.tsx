@@ -1,4 +1,5 @@
 import { useCardStats } from '@/hooks/useCardStats'
+import { WeekProgressChart } from '@/components/WeekProgressChart'
 
 const METRICS = [
   { key: 'learned', label: 'Learned' },
@@ -10,10 +11,10 @@ export function StatsDashboard() {
   const stats = useCardStats()
 
   return (
-    <section
-      aria-label="Card statistics"
-      className="grid grid-cols-1 gap-3 sm:grid-cols-3"
-    >
+    <section aria-label="Card statistics" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="sm:col-span-3">
+        <WeekProgressChart />
+      </div>
       {METRICS.map(({ key, label }) => (
         <div
           key={key}

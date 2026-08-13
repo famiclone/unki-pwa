@@ -6,6 +6,7 @@ export {
   type Review,
   type ReviewState,
   type Stats,
+  type DailyLog,
   type UnkiDB,
 } from './db'
 export {
@@ -40,4 +41,5 @@ export {
   type ExportedDeckJson,
   type ExportedCard,
   type ExportedStats,
+  type ExportedDailyLog,
 } from './transfer'
