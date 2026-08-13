@@ -26,6 +26,7 @@ export type ExportedStats = {
   maxHearts?: number
   attack?: number
   isExhausted?: boolean
+  coins?: number
 }
 
 export type ExportedDailyLog = {
@@ -173,6 +174,7 @@ async function buildCardsZip(
       maxHearts: stats.maxHearts,
       attack: stats.attack,
       isExhausted: stats.isExhausted,
+      coins: stats.coins,
     }
     payload.dailyLog = dailyLog.map((entry) => ({
       id: entry.id,
@@ -248,6 +250,7 @@ function parseExportedStats(value: unknown): ExportedStats | null {
     lastStudyDate: data.lastStudyDate,
     ...(typeof data.exp === 'number' ? { exp: data.exp } : {}),
     ...(typeof data.level === 'number' ? { level: data.level } : {}),
+    ...(typeof data.coins === 'number' ? { coins: data.coins } : {}),
   }
 }
 
@@ -259,6 +262,7 @@ async function mergeImportedStats(incoming: ExportedStats): Promise<void> {
   const next: Stats = {
     ...existing,
     exp: Math.max(existing.exp, Math.max(0, Math.floor(incoming.exp ?? 0))),
+    coins: Math.max(existing.coins, Math.max(0, Math.floor(incoming.coins ?? 0))),
   }
 
   if (!existing.lastStudyDate && incoming.lastStudyDate) {

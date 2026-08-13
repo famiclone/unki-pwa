@@ -2,26 +2,32 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, PartyPopper } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Deck } from '../db'
+import { addInventoryItem, applyItemEffect, db, type Deck } from '../db'
 import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
 import type { Grade } from '../lib/srs'
+import { CHEST_DROP_CHANCE, pickRandomLoot, type Item } from '@/lib/items'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { ChestEncounter } from '@/components/ChestEncounter'
 import { Flashcard } from '@/components/Flashcard'
 import { HeartsDisplay } from '@/components/HeartsDisplay'
+import { LootReveal } from '@/components/LootReveal'
 import { awardReviewExp, recordStudyActivity, useStreak } from '@/hooks/useStreak'
 import './StudyView.css'
+
+type SessionState = 'CARD' | 'CHEST' | 'LOOT'
 
 type CombatFeedback = {
   id: number
   text: string
-  type: 'damage' | 'heal' | 'exp'
+  type: 'damage' | 'heal' | 'exp' | 'loot'
 }
 
 const FEEDBACK_CLASS: Record<CombatFeedback['type'], string> = {
   damage: 'text-red-500 font-bold text-2xl drop-shadow-md animate-floatUp',
   heal: 'text-green-400 font-bold text-xl drop-shadow-md animate-floatUp',
   exp: 'text-yellow-400 font-bold text-xl drop-shadow-md animate-floatUp',
+  loot: 'text-amber-400 font-bold text-xl drop-shadow-md animate-floatUp',
 }
 
 const STUDY_ACTIONS: Array<{ grade: Grade; label: string; className: string }> =
@@ -112,15 +118,20 @@ export function StudyView() {
   }, [decks])
 
   const [sessionQueue, setSessionQueue] = useState<StudyItem[]>([])
+  const [sessionState, setSessionState] = useState<SessionState>('CARD')
+  const [currentLoot, setCurrentLoot] = useState<Item | null>(null)
   const [revealed, setRevealed] = useState(false)
   const [rating, setRating] = useState(false)
+  const [claiming, setClaiming] = useState(false)
   const [loading, setLoading] = useState(true)
   const [doneCount, setDoneCount] = useState(0)
   const [sessionExp, setSessionExp] = useState(0)
   const [feedback, setFeedback] = useState<CombatFeedback[]>([])
   const [shaking, setShaking] = useState(false)
+  const [damageFlash, setDamageFlash] = useState(false)
   const feedbackSeq = useRef(0)
   const timeoutsRef = useRef<number[]>([])
+  const trapResolved = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -129,9 +140,12 @@ export function StudyView() {
       .then((batch) => {
         if (cancelled) return
         setSessionQueue(batch)
+        setSessionState('CARD')
+        setCurrentLoot(null)
         setRevealed(false)
         setDoneCount(0)
         setSessionExp(0)
+        trapResolved.current = false
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -164,6 +178,48 @@ export function StudyView() {
     timeoutsRef.current.push(start, stop)
   }
 
+  function triggerDamageFlash() {
+    setDamageFlash(false)
+    const start = window.setTimeout(() => setDamageFlash(true), 0)
+    const stop = window.setTimeout(() => setDamageFlash(false), 450)
+    timeoutsRef.current.push(start, stop)
+  }
+
+  function returnToCards() {
+    setCurrentLoot(null)
+    setSessionState('CARD')
+    trapResolved.current = false
+  }
+
+  function feedbackFromEffect(result: {
+    heartsDelta: number
+    expDelta: number
+    message: string
+    leveledUp: boolean
+    recovered: boolean
+    becameExhausted: boolean
+    newLevel?: number
+    stats: { level: number }
+  }) {
+    if (result.heartsDelta > 0) {
+      spawnFeedback(`+${result.heartsDelta} ❤️`, 'heal')
+    } else if (result.heartsDelta < 0) {
+      spawnFeedback(result.message || `${result.heartsDelta} ❤️`, 'damage')
+    }
+    if (result.expDelta > 0) {
+      spawnFeedback(`+${result.expDelta} EXP`, 'exp')
+      setSessionExp((n) => n + result.expDelta)
+    }
+    if (result.leveledUp) {
+      toast.success(`🎉 Level Up! You are now Level ${result.stats.level}!`)
+    }
+    if (result.becameExhausted) {
+      toast.error('Exhausted — restore a heart with a Health Potion.')
+    } else if (result.recovered) {
+      toast.success('A heart returns. You’re no longer exhausted.')
+    }
+  }
+
   const current = sessionQueue[0]
 
   async function handleRateCard(grade: Grade) {
@@ -183,9 +239,7 @@ export function StudyView() {
         toast.success(`🎉 Level Up! You are now Level ${award.newLevel}!`)
       }
       if (award.becameExhausted) {
-        toast.error('Exhausted — attack bonus is off until you recover a heart.')
-      } else if (award.recovered) {
-        toast.success('A heart returns. You’re no longer exhausted.')
+        toast.error('Exhausted — restore a heart with a Health Potion.')
       }
 
       if (grade === 1) {
@@ -198,11 +252,11 @@ export function StudyView() {
             : `+${award.expGained} EXP`,
           'exp',
         )
-        if (stats.hearts < stats.maxHearts) {
-          const heal = window.setTimeout(() => {
-            spawnFeedback('+0.5 ❤️', 'heal')
+        if (award.coinsGained > 0) {
+          const loot = window.setTimeout(() => {
+            spawnFeedback(`+${award.coinsGained} 🪙`, 'loot')
           }, 150)
-          timeoutsRef.current.push(heal)
+          timeoutsRef.current.push(loot)
         }
       }
 
@@ -211,8 +265,72 @@ export function StudyView() {
       setSessionExp((n) => n + award.expGained)
       setSessionQueue((prev) => prev.slice(1))
       setRevealed(false)
+
+      const foundChest =
+        (grade === 3 || grade === 4) && Math.random() < CHEST_DROP_CHANCE
+      if (foundChest) {
+        setCurrentLoot(pickRandomLoot())
+        setSessionState('CHEST')
+      } else {
+        setCurrentLoot(null)
+        setSessionState('CARD')
+      }
     } finally {
       setRating(false)
+    }
+  }
+
+  function openChest() {
+    if (sessionState !== 'CHEST' || !currentLoot) return
+    const loot = currentLoot
+    trapResolved.current = false
+    setSessionState('LOOT')
+    if (loot.type === 'trap') {
+      void springTrap(loot)
+    }
+  }
+
+  async function springTrap(loot: Item) {
+    if (trapResolved.current) return
+    trapResolved.current = true
+    try {
+      const result = await applyItemEffect(loot.id)
+      triggerShake()
+      triggerDamageFlash()
+      feedbackFromEffect(result)
+    } catch {
+      trapResolved.current = false
+      toast.error('The trap fizzled')
+    }
+  }
+
+  async function handleUseLoot() {
+    if (sessionState !== 'LOOT' || !currentLoot || claiming) return
+    if (currentLoot.type === 'trap') return
+    setClaiming(true)
+    try {
+      const result = await applyItemEffect(currentLoot.id)
+      feedbackFromEffect(result)
+      returnToCards()
+    } catch {
+      toast.error('Could not use the item')
+    } finally {
+      setClaiming(false)
+    }
+  }
+
+  async function handleStashLoot() {
+    if (sessionState !== 'LOOT' || !currentLoot || claiming) return
+    if (currentLoot.type === 'trap') return
+    setClaiming(true)
+    try {
+      await addInventoryItem(currentLoot.id)
+      toast.success(`${currentLoot.name} added to your bag`)
+      returnToCards()
+    } catch {
+      toast.error('Could not stash the loot')
+    } finally {
+      setClaiming(false)
     }
   }
 
@@ -234,7 +352,8 @@ export function StudyView() {
     )
   }
 
-  const finished = !current
+  const onCard = sessionState === 'CARD'
+  const finished = onCard && !current
   const cardMeta = current
     ? `${backLabel} / ${String(doneCount + 1).padStart(3, '0')}`
     : ''
@@ -245,20 +364,39 @@ export function StudyView() {
       : undefined)
 
   return (
-    <section className={cn('study-view relative', shaking && 'animate-shake')}>
+    <section
+      className={cn(
+        'study-view relative',
+        shaking && 'animate-shake',
+      )}
+    >
       <Link to={deckId ? `/decks/${deckId}` : '/cards'} className="text-back">
         <ArrowLeft size={16} aria-hidden />
         {backLabel}
       </Link>
 
       <header className="view-header">
-        <h1>{finished && doneCount > 0 ? 'Session Complete!' : 'Study'}</h1>
+        <h1>
+          {finished && doneCount > 0
+            ? 'Session Complete!'
+            : sessionState === 'LOOT' && currentLoot?.type === 'trap'
+              ? 'It’s a trap!'
+              : sessionState === 'CHEST' || sessionState === 'LOOT'
+                ? 'Treasure!'
+                : 'Study'}
+        </h1>
         <p>
           {finished
             ? doneCount > 0
               ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'}.`
               : 'Nothing due right now.'
-            : `${sessionQueue.length} remaining · ${doneCount} done`}
+            : sessionState === 'CHEST'
+              ? 'A chest appeared. Swipe up to open it.'
+              : sessionState === 'LOOT' && currentLoot?.type === 'trap'
+                ? 'The chest was a mimic. You take the hit.'
+                : sessionState === 'LOOT'
+                  ? 'Use it now or stash it in your bag.'
+                : `${sessionQueue.length} remaining · ${doneCount} done`}
         </p>
         {finished ? null : (
           <div className="study-hp">
@@ -268,7 +406,17 @@ export function StudyView() {
       </header>
 
       <div className="study-card-stage">
-        {finished ? (
+        {sessionState === 'CHEST' ? (
+          <ChestEncounter onOpen={openChest} />
+        ) : sessionState === 'LOOT' && currentLoot ? (
+          <LootReveal
+            item={currentLoot}
+            busy={claiming}
+            onUseNow={() => void handleUseLoot()}
+            onAddToInventory={() => void handleStashLoot()}
+            onContinue={returnToCards}
+          />
+        ) : finished ? (
           <div className="study-complete">
             {doneCount > 0 ? (
               <>
@@ -290,7 +438,7 @@ export function StudyView() {
               </Link>
             </div>
           </div>
-        ) : (
+        ) : current ? (
           <StudyFlashcard
             key={`${current.card.id}-${doneCount}`}
             item={current}
@@ -301,7 +449,7 @@ export function StudyView() {
             meta={cardMeta}
             deckColor={currentDeckColor}
           />
-        )}
+        ) : null}
         <div
           className="pointer-events-none absolute left-1/2 top-[38%] z-20 -translate-x-1/2"
           aria-live="polite"
@@ -322,6 +470,7 @@ export function StudyView() {
           ))}
         </div>
       </div>
+      {damageFlash ? <div className="loot-damage-flash" aria-hidden /> : null}
     </section>
   )
 }

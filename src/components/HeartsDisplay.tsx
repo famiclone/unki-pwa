@@ -1,4 +1,4 @@
-import { Heart, Sword } from 'lucide-react'
+import { Coins, Heart, Sword } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Stats } from '@/db'
 
@@ -27,7 +27,7 @@ function HeartIcon({ fill }: { fill: 'full' | 'half' | 'empty' }) {
 }
 
 export function HeartsDisplay({ stats, compact = false }: HeartsDisplayProps) {
-  const { hearts, maxHearts, attack, isExhausted } = stats
+  const { hearts, maxHearts, attack, isExhausted, coins } = stats
   const slots = Array.from({ length: maxHearts }, (_, index) => {
     if (hearts >= index + 1) return 'full' as const
     if (hearts >= index + 0.5) return 'half' as const
@@ -40,7 +40,7 @@ export function HeartsDisplay({ stats, compact = false }: HeartsDisplayProps) {
         'flex items-center justify-between gap-3',
         compact && 'gap-2',
       )}
-      aria-label={`${hearts} of ${maxHearts} hearts${isExhausted ? ', exhausted' : ''}`}
+      aria-label={`${hearts} of ${maxHearts} hearts, ${coins} coins${isExhausted ? ', exhausted' : ''}`}
     >
       <div className="flex items-center gap-0.5">
         {slots.map((fill, index) => (
@@ -49,10 +49,14 @@ export function HeartsDisplay({ stats, compact = false }: HeartsDisplayProps) {
       </div>
       <span
         className={cn(
-          'inline-flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-widest tabular-nums',
+          'inline-flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-widest tabular-nums',
           isExhausted ? 'text-muted-foreground/60' : 'text-amber-600 dark:text-amber-400',
         )}
       >
+        <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+          <Coins className="size-3.5" aria-hidden />
+          {coins}
+        </span>
         <Sword
           className={cn('size-3.5', isExhausted && 'opacity-40')}
           aria-hidden

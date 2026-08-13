@@ -158,3 +158,190 @@
   font-weight: 700;
   color: #e3b505;
 }
+
+.study-loot {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.25rem;
+  text-align: center;
+}
+
+.study-loot .study-actions {
+  justify-content: stretch;
+}
+
+.study-loot .back-link {
+  width: 100%;
+}
+
+.study-chest {
+  align-items: center;
+}
+
+.chest-stage {
+  display: flex;
+  width: 100%;
+  aspect-ratio: 1.586 / 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 1.5rem;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in oklab, #e3b505 40%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in oklab, #e3b505 12%, var(--card-bg));
+  color: var(--fg-color);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow: 0 0.3125rem 1.25rem -12px rgba(0, 0, 0, 0.16);
+  transition: transform 0.28s ease-out, filter 0.2s ease;
+}
+
+.chest-stage:hover:not(.chest-stage-dragging):not(.chest-stage-exiting) {
+  filter: brightness(1.04);
+}
+
+.chest-stage-dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.chest-stage-exiting {
+  pointer-events: none;
+  opacity: 0;
+  transition: transform 0.22s ease-in, opacity 0.22s ease-in;
+}
+
+.chest-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 1.15rem;
+  background: color-mix(in oklab, #e3b505 22%, var(--card-bg));
+  color: #b45309;
+}
+
+.chest-art svg {
+  width: 3.25rem;
+  height: 3.25rem;
+  stroke-width: 1.75;
+}
+
+.chest-hint {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.loot-screen {
+  display: flex;
+  min-height: min(28rem, 62svh);
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.loot-copy {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.loot-badge {
+  display: flex;
+  width: 5.5rem;
+  height: 5.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: 0 0.3125rem 1.25rem -12px rgba(0, 0, 0, 0.16);
+}
+
+.loot-badge svg {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.loot-badge-consumable {
+  color: #dc2626;
+  background: color-mix(in oklab, #dc2626 12%, var(--card-bg));
+  border-color: color-mix(in oklab, #dc2626 28%, var(--border));
+}
+
+.loot-badge-scroll {
+  color: #ca8a04;
+  background: color-mix(in oklab, #e3b505 14%, var(--card-bg));
+  border-color: color-mix(in oklab, #e3b505 35%, var(--border));
+}
+
+.loot-badge-trap {
+  color: #b42318;
+  background: color-mix(in oklab, #b42318 16%, var(--card-bg));
+  border-color: color-mix(in oklab, #b42318 40%, var(--border));
+}
+
+.loot-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  letter-spacing: -0.03em;
+}
+
+.loot-desc {
+  margin: 0;
+  max-width: 22rem;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.loot-actions {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.loot-btn {
+  width: 100%;
+  min-height: 3rem;
+  font-size: 1rem;
+}
+
+.loot-damage-flash {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  border-radius: inherit;
+  background: color-mix(in oklab, #b42318 38%, transparent);
+  animation: lootFlash 0.45s ease-out forwards;
+}
+
+@keyframes lootFlash {
+  0% {
+    opacity: 0.85;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}

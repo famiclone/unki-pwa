@@ -67,6 +67,14 @@ export interface Stats {
   attack: number
   /** True when hearts reach 0; ATK bonus is disabled until a heart is restored. */
   isExhausted: boolean
+  /** Spendable currency earned from reviews. */
+  coins: number
+}
+
+export interface InventoryItem {
+  id: string
+  itemId: string
+  quantity: number
 }
 
 export interface DailyLog {
@@ -82,6 +90,7 @@ export type UnkiDB = Dexie & {
   reviews: EntityTable<Review, 'cardId'>
   stats: EntityTable<Stats, 'id'>
   dailyLog: EntityTable<DailyLog, 'id'>
+  inventory: EntityTable<InventoryItem, 'id'>
 }
 
 export const db = new Dexie('UnkiDB') as UnkiDB
@@ -229,4 +238,24 @@ db.version(9)
           row.isExhausted = row.hearts <= 0
         },
       )
+  })
+
+// Coins on global stats + inventory stacks (id UUID, keyed by itemId).
+db.version(10)
+  .stores({
+    decks: 'id, name, description, color, createdAt',
+    cards: 'id, deckId, front, romaji, back, example, createdAt',
+    reviews: 'cardId, state, due, stability, difficulty, reps',
+    stats:
+      'id, currentStreak, lastStudyDate, exp, level, hearts, maxHearts, attack, isExhausted, coins',
+    dailyLog: 'id, cardsReviewed, didStudy',
+    inventory: 'id, itemId',
+  })
+  .upgrade(async (tx) => {
+    await tx
+      .table('stats')
+      .toCollection()
+      .modify((row: { coins?: number }) => {
+        if (typeof row.coins !== 'number') row.coins = 0
+      })
   })

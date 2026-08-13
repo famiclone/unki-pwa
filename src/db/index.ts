@@ -7,8 +7,17 @@ export {
   type ReviewState,
   type Stats,
   type DailyLog,
+  type InventoryItem,
   type UnkiDB,
 } from './db'
+export {
+  listInventory,
+  addInventoryItem,
+  applyItemEffect,
+  buyItem,
+  useInventoryItem,
+  type InventoryStack,
+} from './inventory'
 export {
   useDb,
   createDeck,

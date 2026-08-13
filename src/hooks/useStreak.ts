@@ -2,8 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, GLOBAL_STATS_ID, type DailyLog, type Stats } from '@/db/db'
 import {
   AGAIN_HEART_LOSS,
-  GOOD_HEART_GAIN,
   calculateLevelStats,
+  coinsForReview,
   deriveCombatStats,
   snapHearts,
   totalExpForReview,
@@ -38,6 +38,7 @@ export function createDefaultStats(): Stats {
     maxHearts,
     attack,
     isExhausted: false,
+    coins: 0,
   }
 }
 
@@ -59,6 +60,7 @@ export function normalizeStats(stats?: Partial<Stats> | null): Stats {
     attack,
     hearts,
     isExhausted: hearts <= 0,
+    coins: Math.max(0, Math.floor(stats?.coins ?? 0)),
   }
 }
 
@@ -152,12 +154,11 @@ export async function awardReviewExp(
 
   let hearts = existing.hearts
   let becameExhausted = false
+  const coinsGained = coinsForReview(grade)
 
   if (grade === 1) {
     hearts = Math.max(0, snapHearts(hearts - AGAIN_HEART_LOSS))
     if (hearts <= 0 && !existing.isExhausted) becameExhausted = true
-  } else if (grade === 3 || grade === 4) {
-    hearts = Math.min(maxHearts, snapHearts(hearts + GOOD_HEART_GAIN))
   }
 
   const next = normalizeStats({
@@ -167,6 +168,7 @@ export async function awardReviewExp(
     hearts,
     maxHearts,
     attack,
+    coins: existing.coins + coinsGained,
   })
   await db.stats.put(next)
   return {
@@ -181,6 +183,8 @@ export async function awardReviewExp(
     isExhausted: next.isExhausted,
     becameExhausted,
     recovered: existing.isExhausted && next.hearts > 0,
+    coins: next.coins,
+    coinsGained,
   }
 }
 

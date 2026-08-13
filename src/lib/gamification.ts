@@ -27,12 +27,15 @@ export type CombatResult = ExpAward & {
   isExhausted: boolean
   becameExhausted: boolean
   recovered: boolean
+  coins: number
+  coinsGained: number
 }
 
 export const BASE_HEARTS = 3
 export const HEART_PER_TEN_LEVELS = 10
 export const AGAIN_HEART_LOSS = 1
-export const GOOD_HEART_GAIN = 0.5
+export const GOOD_COINS = 3
+export const HARD_COINS = 1
 
 export function snapHearts(value: number): number {
   return Math.round(value * 2) / 2
@@ -120,4 +123,11 @@ export function totalExpForReview(
   const base = expForReview(grade, wasNew)
   if (base <= 0) return 0
   return base + (isExhausted ? 0 : Math.max(0, attack))
+}
+
+/** Coins for a rating. Again awards none; hearts no longer heal from reviews. */
+export function coinsForReview(grade: Grade): number {
+  if (grade === 2) return HARD_COINS
+  if (grade === 3 || grade === 4) return GOOD_COINS
+  return 0
 }

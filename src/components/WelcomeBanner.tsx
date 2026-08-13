@@ -3,6 +3,7 @@ import { calculateLevelStats, getRankTitle } from '@/lib/gamification'
 import { getTimeBasedGreeting } from '@/lib/greeting'
 import { Progress } from '@/components/ui/progress'
 import { HeartsDisplay } from '@/components/HeartsDisplay'
+import { InventoryPanel } from '@/components/InventoryPanel'
 
 export function WelcomeBanner() {
   const { streak, stats, loading } = useStreak()
@@ -54,6 +55,7 @@ export function WelcomeBanner() {
       </div>
 
       <HeartsDisplay stats={stats} />
+      <InventoryPanel />
     </header>
   )
 }
