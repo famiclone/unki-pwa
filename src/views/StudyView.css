@@ -57,40 +57,6 @@
   width: 100%;
 }
 
-.exp-burst {
-  position: absolute;
-  left: 50%;
-  top: 42%;
-  z-index: 5;
-  pointer-events: none;
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.35rem, 4vw, 1.75rem);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #e3b505;
-  text-shadow: 0 1px 10px color-mix(in oklab, #000 40%, transparent);
-  white-space: nowrap;
-  animation: expBurst 0.95s ease-out forwards;
-}
-
-@keyframes expBurst {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.9);
-  }
-
-  14% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% - 4.75rem)) scale(1);
-  }
-}
-
 .study-flashcard-stack {
   display: flex;
   width: 100%;
@@ -171,4 +137,24 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
+}
+
+.study-complete {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.session-complete-icon {
+  color: var(--unki-primary);
+  margin-top: 0.25rem;
+}
+
+.session-exp {
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #e3b505;
 }

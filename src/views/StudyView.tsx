@@ -1,15 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, PartyPopper } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Deck } from '../db'
 import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
 import type { Grade } from '../lib/srs'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { Flashcard } from '@/components/Flashcard'
 import { HeartsDisplay } from '@/components/HeartsDisplay'
 import { awardReviewExp, recordStudyActivity, useStreak } from '@/hooks/useStreak'
 import './StudyView.css'
+
+type CombatFeedback = {
+  id: number
+  text: string
+  type: 'damage' | 'heal' | 'exp'
+}
+
+const FEEDBACK_CLASS: Record<CombatFeedback['type'], string> = {
+  damage: 'text-red-500 font-bold text-2xl drop-shadow-md animate-floatUp',
+  heal: 'text-green-400 font-bold text-xl drop-shadow-md animate-floatUp',
+  exp: 'text-yellow-400 font-bold text-xl drop-shadow-md animate-floatUp',
+}
 
 const STUDY_ACTIONS: Array<{ grade: Grade; label: string; className: string }> =
   [
@@ -98,40 +111,73 @@ export function StudyView() {
     return map
   }, [decks])
 
-  const [queue, setQueue] = useState<StudyItem[]>([])
+  const [sessionQueue, setSessionQueue] = useState<StudyItem[]>([])
   const [revealed, setRevealed] = useState(false)
   const [rating, setRating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [doneCount, setDoneCount] = useState(0)
-  const [expBurst, setExpBurst] = useState<{ id: number; amount: number } | null>(
-    null,
-  )
+  const [sessionExp, setSessionExp] = useState(0)
+  const [feedback, setFeedback] = useState<CombatFeedback[]>([])
+  const [shaking, setShaking] = useState(false)
+  const feedbackSeq = useRef(0)
+  const timeoutsRef = useRef<number[]>([])
 
-  const loadQueue = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false
     setLoading(true)
-    try {
-      const nextQueue = await getStudyQueue(deckId)
-      setQueue(nextQueue)
-      setRevealed(false)
-      setDoneCount(0)
-    } finally {
-      setLoading(false)
+    void getStudyQueue(deckId)
+      .then((batch) => {
+        if (cancelled) return
+        setSessionQueue(batch)
+        setRevealed(false)
+        setDoneCount(0)
+        setSessionExp(0)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
   }, [deckId])
 
   useEffect(() => {
-    void loadQueue()
-  }, [loadQueue])
+    return () => {
+      timeoutsRef.current.forEach((id) => window.clearTimeout(id))
+    }
+  }, [])
 
-  const current = queue[0]
+  function spawnFeedback(text: string, type: CombatFeedback['type']) {
+    feedbackSeq.current += 1
+    const id = Date.now() + feedbackSeq.current
+    setFeedback((prev) => [...prev, { id, text, type }])
+    const hide = window.setTimeout(() => {
+      setFeedback((prev) => prev.filter((item) => item.id !== id))
+    }, 1000)
+    timeoutsRef.current.push(hide)
+  }
 
-  async function handleRate(grade: Grade) {
+  function triggerShake() {
+    setShaking(false)
+    const start = window.setTimeout(() => setShaking(true), 0)
+    const stop = window.setTimeout(() => setShaking(false), 400)
+    timeoutsRef.current.push(start, stop)
+  }
+
+  const current = sessionQueue[0]
+
+  async function handleRateCard(grade: Grade) {
     if (!current || rating) return
 
     setRating(true)
     try {
       const wasNew = !current.review || current.review.state === 'new'
-      const updated = await rateCard(current.card.id, grade, current.review)
+      const answeringExhausted = stats.isExhausted
+      const willExhaust =
+        answeringExhausted || (grade === 1 && stats.hearts <= 1)
+      await rateCard(current.card.id, grade, current.review, {
+        exhausted: willExhaust,
+      })
       const award = await awardReviewExp(grade, wasNew)
       if (award.leveledUp) {
         toast.success(`🎉 Level Up! You are now Level ${award.newLevel}!`)
@@ -141,18 +187,29 @@ export function StudyView() {
       } else if (award.recovered) {
         toast.success('A heart returns. You’re no longer exhausted.')
       }
-      if (award.expGained > 0 && (grade === 3 || grade === 4)) {
-        setExpBurst({ id: Date.now(), amount: award.expGained })
+
+      if (grade === 1) {
+        spawnFeedback('-1 ❤️', 'damage')
+        triggerShake()
+      } else if (grade === 3 || grade === 4) {
+        spawnFeedback(
+          answeringExhausted
+            ? `+${award.expGained} EXP (No ATK bonus)`
+            : `+${award.expGained} EXP`,
+          'exp',
+        )
+        if (stats.hearts < stats.maxHearts) {
+          const heal = window.setTimeout(() => {
+            spawnFeedback('+0.5 ❤️', 'heal')
+          }, 150)
+          timeoutsRef.current.push(heal)
+        }
       }
+
       await recordStudyActivity()
       setDoneCount((n) => n + 1)
-      setQueue((prev) => {
-        const rest = prev.slice(1)
-        if (grade === 1) {
-          return [...rest, { card: current.card, review: updated }]
-        }
-        return rest
-      })
+      setSessionExp((n) => n + award.expGained)
+      setSessionQueue((prev) => prev.slice(1))
       setRevealed(false)
     } finally {
       setRating(false)
@@ -188,70 +245,83 @@ export function StudyView() {
       : undefined)
 
   return (
-    <section className="study-view">
+    <section className={cn('study-view relative', shaking && 'animate-shake')}>
       <Link to={deckId ? `/decks/${deckId}` : '/cards'} className="text-back">
         <ArrowLeft size={16} aria-hidden />
         {backLabel}
       </Link>
 
       <header className="view-header">
-        <h1>Study</h1>
+        <h1>{finished && doneCount > 0 ? 'Session Complete!' : 'Study'}</h1>
         <p>
           {finished
             ? doneCount > 0
-              ? `Session complete — reviewed ${doneCount} card${doneCount === 1 ? '' : 's'}.`
+              ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'}.`
               : 'Nothing due right now.'
-            : `${queue.length} remaining · ${doneCount} done`}
+            : `${sessionQueue.length} remaining · ${doneCount} done`}
         </p>
-        <div className="study-hp">
-          <HeartsDisplay stats={stats} compact />
-        </div>
+        {finished ? null : (
+          <div className="study-hp">
+            <HeartsDisplay stats={stats} compact />
+          </div>
+        )}
       </header>
 
-      {finished ? (
-        <div className="study-complete">
-          <p className="empty-state">
-            {doneCount > 0
-              ? 'Nice work. Come back when more cards are due.'
-              : 'Add cards or wait until reviews are due.'}
-          </p>
-          <div className="study-actions">
-            <button
-              type="button"
-              className="refresh-btn"
-              onClick={() => void loadQueue()}
-            >
-              Refresh queue
-            </button>
-            <Link to="/cards" className="back-link">
-              All cards
-            </Link>
+      <div className="study-card-stage">
+        {finished ? (
+          <div className="study-complete">
+            {doneCount > 0 ? (
+              <>
+                <PartyPopper className="session-complete-icon" size={36} aria-hidden />
+                <p className="empty-state">
+                  Nice work. Missed cards come back in 5 minutes
+                  {stats.isExhausted ? ', or after a longer rest if you’re exhausted' : ''}.
+                </p>
+                <p className="session-exp">+{sessionExp} EXP this session</p>
+              </>
+            ) : (
+              <p className="empty-state">
+                Add cards or wait until reviews are due.
+              </p>
+            )}
+            <div className="study-actions">
+              <Link to="/cards" className="back-link">
+                Return to Dashboard
+              </Link>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="study-card-stage">
+        ) : (
           <StudyFlashcard
             key={`${current.card.id}-${doneCount}`}
             item={current}
             revealed={revealed}
             onReveal={() => setRevealed((value) => !value)}
-            onRate={handleRate}
+            onRate={handleRateCard}
             rating={rating}
             meta={cardMeta}
             deckColor={currentDeckColor}
           />
-          {expBurst ? (
+        )}
+        <div
+          className="pointer-events-none absolute left-1/2 top-[38%] z-20 -translate-x-1/2"
+          aria-live="polite"
+        >
+          {feedback.map((item) => (
             <span
-              key={expBurst.id}
-              className="exp-burst"
-              aria-live="polite"
-              onAnimationEnd={() => setExpBurst(null)}
+              key={item.id}
+              className={cn(
+                'absolute left-1/2 -translate-x-1/2 whitespace-nowrap',
+                FEEDBACK_CLASS[item.type],
+                item.type === 'exp' &&
+                  item.text.includes('No ATK bonus') &&
+                  'text-sm text-gray-400',
+              )}
             >
-              + {expBurst.amount} EXP
+              {item.text}
             </span>
-          ) : null}
+          ))}
         </div>
-      )}
+      </div>
     </section>
   )
 }

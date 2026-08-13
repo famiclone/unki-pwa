@@ -5,7 +5,8 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend �
 ## Study
 
 - Tap a card to flip (true 3D faces). The front uses the deck color; the back follows light/dark theme
-- After the answer is showing, swipe **left** (Study again) or **right** (I know), or use the buttons
+- After the answer is showing, swipe **left** (Study again) or **right** (I know), or use the buttons. Study again schedules a 5-minute relearn (12 hours if Exhausted) and leaves the session queue — the same card is not shown again until the next session
+- Ratings show RPG floating combat text (hearts / EXP); Study again also shakes the screen. Exhausted reviews show EXP without the ATK bonus
 - Short questions (≤ 100 characters) are spoken on flip via the Web Speech API
 - Home shows Learned / Learning / New counts, streak, Level / rank / XP, hearts, and ATK
 - Reviews award XP (I know +5 + ATK; new card +10; Study again awards none and costs 1 heart). 0 hearts = Exhausted (no ATK bonus) until you recover a heart
