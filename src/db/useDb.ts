@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createInitialSrsStats, srsStatsToReview } from '../lib/srs'
+import { DEFAULT_DECK_COLOR, normalizeHexColor } from '../lib/colorUtils'
 import { db, type Card, type Deck, type Review, type ReviewState } from './db'
 
 export type CreateDeckInput = {
@@ -7,6 +8,8 @@ export type CreateDeckInput = {
   description?: string
   /** Cover image as Blob or File; stored directly in IndexedDB. */
   image?: Blob | File | null
+  /** Accent color as a hex code. */
+  color?: string
 }
 
 export type UpdateDeckInput = {
@@ -15,6 +18,8 @@ export type UpdateDeckInput = {
   description?: string
   /** Pass a Blob/File to replace; null to clear; undefined to keep. */
   image?: Blob | File | null
+  /** Accent color as a hex code. */
+  color?: string
 }
 
 export type AddCardInput = {
@@ -67,10 +72,12 @@ function applyDeckFields(
     name,
     description,
     image,
+    color,
   }: {
     name: string
     description?: string
     image?: Blob | File | null
+    color?: string
   },
 ): Deck {
   const next: Deck = {
@@ -90,6 +97,12 @@ function applyDeckFields(
     next.image = image
   }
 
+  if (color !== undefined) {
+    next.color = normalizeHexColor(color)
+  } else if (!next.color) {
+    next.color = DEFAULT_DECK_COLOR
+  }
+
   return next
 }
 
@@ -97,6 +110,7 @@ async function createDeck({
   name,
   description,
   image,
+  color,
 }: CreateDeckInput): Promise<Deck> {
   const deck = applyDeckFields(
     {
@@ -104,7 +118,7 @@ async function createDeck({
       name: '',
       createdAt: Date.now(),
     },
-    { name, description, image },
+    { name, description, image, color },
   )
   await db.decks.add(deck)
   return deck
@@ -115,11 +129,12 @@ async function updateDeck({
   name,
   description,
   image,
+  color,
 }: UpdateDeckInput): Promise<Deck> {
   const existing = await db.decks.get(id)
   if (!existing) throw new Error('Deck not found')
 
-  const next = applyDeckFields(existing, { name, description, image })
+  const next = applyDeckFields(existing, { name, description, image, color })
   await db.decks.put(next)
   return next
 }

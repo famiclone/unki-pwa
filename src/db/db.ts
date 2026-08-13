@@ -19,6 +19,8 @@ export interface Deck {
   description?: string
   /** Optional cover image stored as a Blob in IndexedDB. */
   image?: Blob
+  /** Accent color as a hex code (e.g. #1faf7f). */
+  color?: string
   createdAt: number
 }
 
@@ -105,6 +107,15 @@ db.version(4).stores({
 // Optional deck description and cover image (Blob fields remain unlisted).
 db.version(5).stores({
   decks: 'id, name, description, createdAt',
+  cards: 'id, deckId, front, romaji, back, example, createdAt',
+  reviews: 'cardId, state, due, stability, difficulty, reps',
+  stats: 'id, currentStreak, lastStudyDate',
+  dailyLog: 'id, cardsReviewed, didStudy',
+})
+
+// Optional deck accent color (hex string).
+db.version(6).stores({
+  decks: 'id, name, description, color, createdAt',
   cards: 'id, deckId, front, romaji, back, example, createdAt',
   reviews: 'cardId, state, due, stability, difficulty, reps',
   stats: 'id, currentStreak, lastStudyDate',

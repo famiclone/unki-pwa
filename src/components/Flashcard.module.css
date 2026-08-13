@@ -8,15 +8,69 @@
   }
 }
 
-.container {
-  width: 100%;
-  transform: translateY(0);
-  transition: 0.3s ease-out;
-  perspective: 1000px;
+@keyframes enterFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(2.75rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.container:hover {
+.container {
+  position: relative;
+  width: 100%;
+  transform: translateY(0);
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  perspective: 1000px;
+  touch-action: pan-y;
+}
+
+.container:hover:not(.dragging):not(.exiting):not(.entering) {
   transform: translateY(-0.25rem);
+}
+
+.dragging {
+  transition: none;
+  cursor: grabbing;
+}
+
+.exiting {
+  pointer-events: none;
+}
+
+.entering {
+  animation: enterFromBottom 0.45s ease-out;
+  transition: none;
+  pointer-events: none;
+}
+
+.hint {
+  position: absolute;
+  top: 1rem;
+  z-index: 2;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.hintLeft {
+  left: 1rem;
+  background: color-mix(in oklab, #b42318 88%, black);
+  color: #fff;
+}
+
+.hintRight {
+  right: 1rem;
+  background: color-mix(in oklab, #087443 88%, black);
+  color: #fff;
 }
 
 .wrapper {
@@ -26,25 +80,29 @@
   width: 100%;
   /* ISO/IEC 7810 ID-1 credit card ratio (85.60 × 53.98 mm) */
   aspect-ratio: 1.586 / 1;
-  border-radius: 16px;
+  border-radius: var(--radius);
   overflow: hidden;
   position: relative;
-  font-size: 21px;
+  font-size: 24px;
   transform: rotateY(0deg);
   transition:
     transform 0.3s,
-    background-color 0.15s;
+    background-color 0.15s,
+    color 0.15s;
   transform-style: preserve-3d;
-  background-color: var(--card-bg);
+  background-color: var(--flash-bg, var(--card-bg));
+  color: var(--flash-fg, var(--fg-color));
   cursor: pointer;
   box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .side0 {
   animation: flipOpacity 1s;
-  background-color: var(--unki-primary);
-  color: white;
-  font-size: 1.4rem;
+  background-color: var(--flash-bg, var(--unki-primary));
+  color: var(--flash-fg, white);
+  font-size: 1.75rem;
   font-weight: bold;
   overflow: hidden;
 }
@@ -53,10 +111,10 @@
   animation: flipOpacity 2s;
   height: 100%;
   transform: rotateY(180deg);
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: normal;
-  background-color: var(--card-bg);
-  color: var(--fg-color);
+  background-color: var(--flash-bg, var(--card-bg));
+  color: var(--flash-fg, var(--fg-color));
 }
 
 .face {
@@ -90,13 +148,13 @@
   width: 100%;
   max-height: 45%;
   object-fit: contain;
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: color-mix(in oklab, #000 8%, transparent);
 }
 
 .frontText {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 2rem;
   font-weight: bold;
   line-height: 1.2;
   word-break: break-word;
@@ -104,7 +162,7 @@
 
 .romaji {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1.2rem;
   font-weight: 500;
   font-style: italic;
   opacity: 0.85;
@@ -112,7 +170,7 @@
 
 .backText {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1.25rem;
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
@@ -120,7 +178,7 @@
 
 .example {
   margin: 0.5rem 0 0;
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   opacity: 0.75;
   line-height: 1.4;
 }
@@ -130,7 +188,7 @@
   right: 30px;
   bottom: 14px;
   left: 30px;
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   opacity: 0.5;
   text-align: left;

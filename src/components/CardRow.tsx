@@ -39,6 +39,7 @@ type CardRowProps = {
   card: Card
   review: Review | null
   decks: Deck[]
+  deckColor?: string
   onEdit: (card: Card) => void
   onReset: (card: Card) => void
   onDelete: (card: Card) => void
@@ -49,6 +50,7 @@ export function CardRow({
   card,
   review,
   decks,
+  deckColor,
   onEdit,
   onReset,
   onDelete,
@@ -69,13 +71,17 @@ export function CardRow({
       name: deckData.name,
       description: deckData.description,
       image: deckData.image,
+      color: deckData.color,
     })
     const updated = await assignCardToDeck(card.id, deck.id)
     onAssigned?.(updated, deck)
   }
 
   return (
-    <li className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-card-foreground">
+    <li
+      className="flex items-center gap-3 rounded-xl border border-border border-r-[3px] bg-card p-3 text-card-foreground"
+      style={{ borderRightColor: deckColor || undefined }}
+    >
       <SrsBattery progress={progress} />
 
       {imageUrl ? (

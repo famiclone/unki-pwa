@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useInView } from 'react-intersection-observer'
 import type { Card, Deck, Review } from '@/db'
 import type { InfiniteCardItem } from '@/hooks/useInfiniteCards'
@@ -27,6 +27,12 @@ export function CardList({
   onDelete,
   onAssigned,
 }: CardListProps) {
+  const deckById = useMemo(() => {
+    const map = new Map<string, Deck>()
+    for (const deck of decks) map.set(deck.id, deck)
+    return map
+  }, [decks])
+
   const { ref, inView } = useInView({
     rootMargin: '200px 0px',
     threshold: 0,
@@ -54,6 +60,7 @@ export function CardList({
           card={card}
           review={review as Review | null}
           decks={decks}
+          deckColor={card.deckId ? deckById.get(card.deckId)?.color : undefined}
           onEdit={onEdit}
           onReset={onReset}
           onDelete={onDelete}
