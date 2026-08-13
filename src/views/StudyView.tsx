@@ -464,8 +464,6 @@ export function StudyView() {
     }
   }
 
-  const backLabel = deck?.name ?? 'All Cards'
-
   if ((deckId && deck === undefined) || loading) {
     return <p className="empty-state">Loading study session…</p>
   }
@@ -481,8 +479,14 @@ export function StudyView() {
     )
   }
 
+  const cardDeckName =
+    (current?.card.deckId
+      ? deckById.get(current.card.deckId)?.name
+      : undefined) ??
+    deck?.name ??
+    'All Cards'
   const cardMeta = current
-    ? `${backLabel} / ${String(doneCount + 1).padStart(3, '0')}`
+    ? `${cardDeckName} / ${String(doneCount + 1).padStart(3, '0')}`
     : ''
   const currentDeckColor =
     deck?.color ??

@@ -22,7 +22,7 @@ export function LootReveal({
 
   return (
     <div className="loot-screen">
-      <div className="loot-copy">
+      <div className={cn('loot-card', `loot-card-${item.type}`)}>
         <div
           className={cn('loot-badge', `loot-badge-${item.type}`)}
           aria-hidden

@@ -306,23 +306,43 @@
 
 .loot-screen {
   display: flex;
-  min-height: min(28rem, 62svh);
   width: 100%;
   flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
+  align-items: stretch;
+  gap: 1.25rem;
   text-align: center;
 }
 
-.loot-copy {
+.loot-card {
   display: flex;
-  flex: 1;
   width: 100%;
+  aspect-ratio: 1.586 / 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.65rem;
+  padding: 1.25rem 1.5rem;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--fg-color);
+  box-shadow: 0 0.3125rem 1.25rem -12px rgba(0, 0, 0, 0.16);
+}
+
+.loot-card-consumable {
+  border-color: color-mix(in oklab, #dc2626 28%, var(--border));
+  background: color-mix(in oklab, #dc2626 10%, var(--card-bg));
+}
+
+.loot-card-scroll {
+  border-color: color-mix(in oklab, #e3b505 40%, var(--border));
+  background: color-mix(in oklab, #e3b505 12%, var(--card-bg));
+}
+
+.loot-card-trap {
+  border-color: color-mix(in oklab, #b42318 40%, var(--border));
+  background: color-mix(in oklab, #b42318 12%, var(--card-bg));
 }
 
 .loot-badge {
@@ -363,15 +383,15 @@
 .loot-name {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  font-size: clamp(1.5rem, 4.5vw, 2rem);
   letter-spacing: -0.03em;
 }
 
 .loot-desc {
   margin: 0;
-  max-width: 22rem;
+  max-width: 18rem;
   color: var(--text);
-  font-size: 1rem;
+  font-size: 0.95rem;
   line-height: 1.45;
 }
 
