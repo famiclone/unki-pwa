@@ -15,6 +15,29 @@ export type ExpAward = {
   leveledUp: boolean
 }
 
+export type CombatStats = {
+  attack: number
+  maxHearts: number
+}
+
+export type CombatResult = ExpAward & {
+  hearts: number
+  maxHearts: number
+  attack: number
+  isExhausted: boolean
+  becameExhausted: boolean
+  recovered: boolean
+}
+
+export const BASE_HEARTS = 3
+export const HEART_PER_TEN_LEVELS = 10
+export const AGAIN_HEART_LOSS = 1
+export const GOOD_HEART_GAIN = 0.5
+
+export function snapHearts(value: number): number {
+  return Math.round(value * 2) / 2
+}
+
 /** EXP required to leave `currentLevel` and reach the next one. */
 export function nextLevelExp(currentLevel: number): number {
   const level = Math.max(1, Math.floor(currentLevel))
@@ -54,21 +77,21 @@ export function calculateLevelStats(totalExp: number): LevelStats {
  * New-card bonus applies only when the review earned base EXP.
  */
 const RANK_TIERS = [
-  { minLevel: 100, title: 'Singularity' },
-  { minLevel: 75, title: 'Nexus' },
-  { minLevel: 50, title: 'Vanguard' },
-  { minLevel: 40, title: 'Architect' },
-  { minLevel: 30, title: 'Operative' },
-  { minLevel: 20, title: 'Navigator' },
-  { minLevel: 10, title: 'Cadet' },
-  { minLevel: 1, title: 'Drifter' },
+  { minLevel: 100, title: 'Legend' },
+  { minLevel: 75, title: 'Master' },
+  { minLevel: 50, title: 'Champion' },
+  { minLevel: 40, title: 'Hero' },
+  { minLevel: 30, title: 'Veteran' },
+  { minLevel: 20, title: 'Adventurer' },
+  { minLevel: 10, title: 'Apprentice' },
+  { minLevel: 1, title: 'Novice' },
 ] as const
 
-/** Sci-fi rank title derived from RPG level. */
+/** Classic RPG rank title derived from level. */
 export function getRankTitle(level: number): string {
   const safeLevel = Math.max(1, Math.floor(level))
   const tier = RANK_TIERS.find((entry) => safeLevel >= entry.minLevel)
-  return tier?.title ?? 'Drifter'
+  return tier?.title ?? 'Novice'
 }
 
 export function expForReview(grade: Grade, wasNew: boolean): number {
@@ -77,4 +100,24 @@ export function expForReview(grade: Grade, wasNew: boolean): number {
   else if (grade === 3 || grade === 4) gained = 5
   if (wasNew && gained > 0) gained += 10
   return gained
+}
+
+/** ATK = floor(level / 3). Max hearts = 3 + floor(level / 10). */
+export function deriveCombatStats(level: number): CombatStats {
+  const safeLevel = Math.max(1, Math.floor(level))
+  return {
+    attack: Math.floor(safeLevel / 3),
+    maxHearts: BASE_HEARTS + Math.floor(safeLevel / HEART_PER_TEN_LEVELS),
+  }
+}
+
+export function totalExpForReview(
+  grade: Grade,
+  wasNew: boolean,
+  attack: number,
+  isExhausted: boolean,
+): number {
+  const base = expForReview(grade, wasNew)
+  if (base <= 0) return 0
+  return base + (isExhausted ? 0 : Math.max(0, attack))
 }

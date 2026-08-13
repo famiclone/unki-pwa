@@ -7,7 +7,8 @@ import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
 import type { Grade } from '../lib/srs'
 import { toast } from 'sonner'
 import { Flashcard } from '@/components/Flashcard'
-import { awardReviewExp, recordStudyActivity } from '@/hooks/useStreak'
+import { HeartsDisplay } from '@/components/HeartsDisplay'
+import { awardReviewExp, recordStudyActivity, useStreak } from '@/hooks/useStreak'
 import './StudyView.css'
 
 const STUDY_ACTIONS: Array<{ grade: Grade; label: string; className: string }> =
@@ -80,6 +81,7 @@ function StudyFlashcard({
 }
 
 export function StudyView() {
+  const { stats } = useStreak()
   const { deckId: deckIdFromPath } = useParams<{ deckId?: string }>()
   const [searchParams] = useSearchParams()
   const deckIdFromQuery = searchParams.get('deckId')
@@ -133,6 +135,11 @@ export function StudyView() {
       const award = await awardReviewExp(grade, wasNew)
       if (award.leveledUp) {
         toast.success(`🎉 Level Up! You are now Level ${award.newLevel}!`)
+      }
+      if (award.becameExhausted) {
+        toast.error('Exhausted — attack bonus is off until you recover a heart.')
+      } else if (award.recovered) {
+        toast.success('A heart returns. You’re no longer exhausted.')
       }
       if (award.expGained > 0 && (grade === 3 || grade === 4)) {
         setExpBurst({ id: Date.now(), amount: award.expGained })
@@ -196,6 +203,9 @@ export function StudyView() {
               : 'Nothing due right now.'
             : `${queue.length} remaining · ${doneCount} done`}
         </p>
+        <div className="study-hp">
+          <HeartsDisplay stats={stats} compact />
+        </div>
       </header>
 
       {finished ? (

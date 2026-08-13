@@ -1,9 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, GLOBAL_STATS_ID, type DailyLog, type Stats } from '@/db/db'
 import {
+  AGAIN_HEART_LOSS,
+  GOOD_HEART_GAIN,
   calculateLevelStats,
-  expForReview,
-  type ExpAward,
+  deriveCombatStats,
+  snapHearts,
+  totalExpForReview,
+  type CombatResult,
 } from '@/lib/gamification'
 import type { Grade } from '@/lib/srs'
 
@@ -23,24 +27,38 @@ export function toLocalYesterdayString(date = new Date()): string {
 }
 
 export function createDefaultStats(): Stats {
+  const { attack, maxHearts } = deriveCombatStats(1)
   return {
     id: GLOBAL_STATS_ID,
     currentStreak: 0,
     lastStudyDate: '',
     exp: 0,
     level: 1,
+    hearts: maxHearts,
+    maxHearts,
+    attack,
+    isExhausted: false,
   }
 }
 
 export function normalizeStats(stats?: Partial<Stats> | null): Stats {
   const exp = Math.max(0, Math.floor(stats?.exp ?? 0))
+  const level = calculateLevelStats(exp).currentLevel
+  const { attack, maxHearts } = deriveCombatStats(level)
+  const rawHearts =
+    typeof stats?.hearts === 'number' ? stats.hearts : maxHearts
+  const hearts = Math.min(maxHearts, Math.max(0, snapHearts(rawHearts)))
   return {
     id: GLOBAL_STATS_ID,
     currentStreak: Math.max(0, Math.floor(stats?.currentStreak ?? 0)),
     lastStudyDate:
       typeof stats?.lastStudyDate === 'string' ? stats.lastStudyDate : '',
     exp,
-    level: calculateLevelStats(exp).currentLevel,
+    level,
+    maxHearts,
+    attack,
+    hearts,
+    isExhausted: hearts <= 0,
   }
 }
 
@@ -115,20 +133,40 @@ export async function putGlobalStats(stats: Omit<Stats, 'id'> | Stats): Promise<
   return next
 }
 
-/** Add EXP for a rated card and persist the derived level. */
+/** Add EXP, apply hearts, and persist derived combat stats. */
 export async function awardReviewExp(
   grade: Grade,
   wasNew: boolean,
-): Promise<ExpAward> {
+): Promise<CombatResult> {
   const existing = await getGlobalStats()
   const previousLevel = existing.level
-  const expGained = expForReview(grade, wasNew)
+  const expGained = totalExpForReview(
+    grade,
+    wasNew,
+    existing.attack,
+    existing.isExhausted,
+  )
   const totalExp = existing.exp + expGained
   const { currentLevel } = calculateLevelStats(totalExp)
+  const { attack, maxHearts } = deriveCombatStats(currentLevel)
+
+  let hearts = existing.hearts
+  let becameExhausted = false
+
+  if (grade === 1) {
+    hearts = Math.max(0, snapHearts(hearts - AGAIN_HEART_LOSS))
+    if (hearts <= 0 && !existing.isExhausted) becameExhausted = true
+  } else if (grade === 3 || grade === 4) {
+    hearts = Math.min(maxHearts, snapHearts(hearts + GOOD_HEART_GAIN))
+  }
+
   const next = normalizeStats({
     ...existing,
     exp: totalExp,
     level: currentLevel,
+    hearts,
+    maxHearts,
+    attack,
   })
   await db.stats.put(next)
   return {
@@ -137,6 +175,12 @@ export async function awardReviewExp(
     newLevel: currentLevel,
     totalExp,
     leveledUp: currentLevel > previousLevel,
+    hearts: next.hearts,
+    maxHearts: next.maxHearts,
+    attack: next.attack,
+    isExhausted: next.isExhausted,
+    becameExhausted,
+    recovered: existing.isExhausted && next.hearts > 0,
   }
 }
 

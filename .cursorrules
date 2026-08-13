@@ -20,7 +20,7 @@ Database Schema (Dexie):
 - Table 'decks': id (string), name (string), description (string, optional), image (Blob, optional), color (string - hex code), createdAt (number).
 - Table 'cards': id (string), deckId (string, optional), front (string), romaji (string, optional), back (string), example (string, optional), image (Blob, optional), createdAt (number).
 - Table 'reviews': cardId (string), state (string: 'new' | 'learning' | 'review'), due (number - timestamp), stability (number), difficulty (number), reps (number).
-- Table 'stats': id (string), currentStreak (number), lastStudyDate (string - 'YYYY-MM-DD'), exp (number, default 0), level (number, default 1).
+- Table 'stats': id (string), currentStreak (number), lastStudyDate (string - 'YYYY-MM-DD'), exp (number, default 0), level (number, default 1), hearts (number, default 3), maxHearts (number, default 3), attack (number, default 0), isExhausted (boolean, default false).
 - Table 'dailyLog': id (string, unique as 'YYYY-MM-DD'), cardsReviewed (number), didStudy (boolean).
 
 Git Workflow & Agent Behavior Rules:
