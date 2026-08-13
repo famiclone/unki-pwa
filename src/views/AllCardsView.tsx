@@ -150,7 +150,7 @@ export function AllCardsView() {
   return (
     <section className="flex flex-col gap-8">
       <WelcomeBanner />
-      <DailyProgress onAddCards={openCreate} />
+      <DailyProgress onAddCards={openCreate} deckId={selectedDeckId} />
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
