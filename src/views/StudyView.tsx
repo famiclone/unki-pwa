@@ -138,7 +138,7 @@ export function StudyView() {
     return (
       <section>
         <p className="empty-state">Deck not found.</p>
-        <Link to="/" className="back-link">
+        <Link to="/cards" className="back-link">
           <ArrowLeft size={16} aria-hidden />
           Back to cards
         </Link>
@@ -153,7 +153,7 @@ export function StudyView() {
 
   return (
     <section className="study-view">
-      <Link to="/" className="text-back">
+      <Link to={deckId ? `/decks/${deckId}` : '/cards'} className="text-back">
         <ArrowLeft size={16} aria-hidden />
         {backLabel}
       </Link>
@@ -184,7 +184,7 @@ export function StudyView() {
             >
               Refresh queue
             </button>
-            <Link to="/" className="back-link">
+            <Link to="/cards" className="back-link">
               All cards
             </Link>
           </div>

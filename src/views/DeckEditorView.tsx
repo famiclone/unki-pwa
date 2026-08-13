@@ -100,7 +100,7 @@ export function DeckEditorView() {
     return (
       <section>
         <p className="empty-state">Deck not found.</p>
-        <Link to="/" className="back-link">
+        <Link to="/decks" className="back-link">
           <ArrowLeft size={16} aria-hidden />
           Back to decks
         </Link>
@@ -110,7 +110,7 @@ export function DeckEditorView() {
 
   return (
     <section className="deck-editor">
-      <Link to="/" className="text-back">
+      <Link to="/decks" className="text-back">
         <ArrowLeft size={16} aria-hidden />
         Decks
       </Link>

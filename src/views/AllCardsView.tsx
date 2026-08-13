@@ -1,12 +1,10 @@
-import { type ChangeEvent, useDeferredValue, useRef, useState } from 'react'
+import { useDeferredValue, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Download, FolderPlus, Plus, Search, Upload } from 'lucide-react'
+import { BookOpen, FolderPlus, Plus, Search } from 'lucide-react'
 import {
   addCard,
   createDeck,
   deleteCard,
-  exportAllCards,
-  importDeck,
   resetCardProgress,
   updateCard,
   useDb,
@@ -49,10 +47,7 @@ export function AllCardsView() {
   const [editingCard, setEditingCard] = useState<Card | null>(null)
   const [deckDialogOpen, setDeckDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const [importing, setImporting] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
-  const importInputRef = useRef<HTMLInputElement>(null)
 
   const selectedDeckId = deckFilter === ALL_DECKS_VALUE ? null : deckFilter
 
@@ -151,37 +146,6 @@ export function AllCardsView() {
     await refresh()
   }
 
-  async function handleExport() {
-    setExporting(true)
-    setStatus(null)
-    try {
-      await exportAllCards()
-      setStatus('Cards exported.')
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : 'Export failed.')
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  async function handleImport(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-
-    setImporting(true)
-    setStatus(null)
-    try {
-      const deck = await importDeck(file)
-      setStatus(`Imported “${deck.name}”.`)
-      await refresh()
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : 'Import failed.')
-    } finally {
-      setImporting(false)
-    }
-  }
-
   return (
     <section className="space-y-4">
       <header className="space-y-1">
@@ -269,36 +233,6 @@ export function AllCardsView() {
             aria-label="Search cards"
           />
         </div>
-
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon"
-          aria-label="Import cards"
-          title="Import"
-          disabled={importing}
-          onClick={() => importInputRef.current?.click()}
-        >
-          <Upload />
-        </Button>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept=".zip,application/zip"
-          hidden
-          onChange={handleImport}
-        />
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon"
-          aria-label="Export all cards"
-          title="Export"
-          disabled={exporting}
-          onClick={() => void handleExport()}
-        >
-          <Download />
-        </Button>
       </div>
 
       {status ? <p className="text-sm text-foreground">{status}</p> : null}
