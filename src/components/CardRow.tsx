@@ -15,7 +15,6 @@ import {
   type Deck,
   type Review,
 } from '@/db'
-import { useObjectUrl } from '@/hooks/useObjectUrl'
 import { getSrsProgress } from '@/lib/srsProgress'
 import { SrsBattery } from '@/components/SrsBattery'
 import { SpeakButton } from '@/components/SpeakButton'
@@ -56,7 +55,6 @@ export function CardRow({
   onDelete,
   onAssigned,
 }: CardRowProps) {
-  const imageUrl = useObjectUrl(card.image)
   const progress = getSrsProgress(review)
   const [deckDialogOpen, setDeckDialogOpen] = useState(false)
 
@@ -83,19 +81,6 @@ export function CardRow({
       style={{ borderRightColor: deckColor || undefined }}
     >
       <SrsBattery progress={progress} />
-
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt=""
-          className="size-14 shrink-0 rounded-lg object-cover bg-muted"
-        />
-      ) : (
-        <div
-          className="size-14 shrink-0 rounded-lg border border-dashed border-border bg-muted/60"
-          aria-hidden
-        />
-      )}
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1">

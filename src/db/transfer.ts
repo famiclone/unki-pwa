@@ -22,6 +22,11 @@ export type ExportedStats = {
   lastStudyDate: string
   exp?: number
   level?: number
+  hearts?: number
+  maxHearts?: number
+  attack?: number
+  isExhausted?: boolean
+  coins?: number
 }
 
 export type ExportedDailyLog = {
@@ -165,6 +170,11 @@ async function buildCardsZip(
       lastStudyDate: stats.lastStudyDate,
       exp: stats.exp,
       level: stats.level,
+      hearts: stats.hearts,
+      maxHearts: stats.maxHearts,
+      attack: stats.attack,
+      isExhausted: stats.isExhausted,
+      coins: stats.coins,
     }
     payload.dailyLog = dailyLog.map((entry) => ({
       id: entry.id,
@@ -240,6 +250,7 @@ function parseExportedStats(value: unknown): ExportedStats | null {
     lastStudyDate: data.lastStudyDate,
     ...(typeof data.exp === 'number' ? { exp: data.exp } : {}),
     ...(typeof data.level === 'number' ? { level: data.level } : {}),
+    ...(typeof data.coins === 'number' ? { coins: data.coins } : {}),
   }
 }
 
@@ -249,11 +260,9 @@ function parseExportedStats(value: unknown): ExportedStats | null {
 async function mergeImportedStats(incoming: ExportedStats): Promise<void> {
   const existing = await getGlobalStats()
   const next: Stats = {
-    id: 'global',
-    currentStreak: existing.currentStreak,
-    lastStudyDate: existing.lastStudyDate,
+    ...existing,
     exp: Math.max(existing.exp, Math.max(0, Math.floor(incoming.exp ?? 0))),
-    level: existing.level,
+    coins: Math.max(existing.coins, Math.max(0, Math.floor(incoming.coins ?? 0))),
   }
 
   if (!existing.lastStudyDate && incoming.lastStudyDate) {

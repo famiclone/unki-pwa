@@ -1,14 +1,72 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Backpack, PartyPopper, Undo2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Deck } from '../db'
+import {
+  addInventoryItem,
+  applyItemEffect,
+  db,
+  listInventory,
+  useInventoryItem,
+  type Deck,
+} from '../db'
 import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
 import type { Grade } from '../lib/srs'
+import {
+  CHEST_DROP_CHANCE,
+  isRunBagItemId,
+  pickRandomLoot,
+  type Item,
+} from '@/lib/items'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { ChestEncounter } from '@/components/ChestEncounter'
 import { Flashcard } from '@/components/Flashcard'
-import { awardReviewExp, recordStudyActivity } from '@/hooks/useStreak'
+import { HeartsDisplay } from '@/components/HeartsDisplay'
+import { ItemIcon } from '@/components/ItemIcon'
+import { LootReveal } from '@/components/LootReveal'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  awardReviewExp,
+  commitRunRewards,
+  recordStudyActivity,
+  useStreak,
+} from '@/hooks/useStreak'
 import './StudyView.css'
+
+type RunRewards = { exp: number; coins: number }
+
+type SessionState = 'CARD' | 'CHEST' | 'LOOT'
+
+type CombatFeedback = {
+  id: number
+  text: string
+  type: 'damage' | 'heal' | 'exp' | 'loot'
+}
+
+const FEEDBACK_CLASS: Record<CombatFeedback['type'], string> = {
+  damage: 'text-red-500 font-bold text-2xl drop-shadow-md animate-floatUp',
+  heal: 'text-green-400 font-bold text-xl drop-shadow-md animate-floatUp',
+  exp: 'text-yellow-400 font-bold text-xl drop-shadow-md animate-floatUp',
+  loot: 'text-amber-400 font-bold text-xl drop-shadow-md animate-floatUp',
+}
 
 const STUDY_ACTIONS: Array<{ grade: Grade; label: string; className: string }> =
   [
@@ -80,6 +138,8 @@ function StudyFlashcard({
 }
 
 export function StudyView() {
+  const navigate = useNavigate()
+  const { stats } = useStreak()
   const { deckId: deckIdFromPath } = useParams<{ deckId?: string }>()
   const [searchParams] = useSearchParams()
   const deckIdFromQuery = searchParams.get('deckId')
@@ -90,69 +150,319 @@ export function StudyView() {
     return (await db.decks.get(deckId)) ?? null
   }, [deckId])
   const decks = useLiveQuery(() => db.decks.toArray(), [])
+  const runBag = useLiveQuery(async () => {
+    const stacks = await listInventory()
+    return stacks.filter((stack) => isRunBagItemId(stack.itemId))
+  }, [])
   const deckById = useMemo(() => {
     const map = new Map<string, Deck>()
     for (const item of decks ?? []) map.set(item.id, item)
     return map
   }, [decks])
 
-  const [queue, setQueue] = useState<StudyItem[]>([])
+  const [sessionQueue, setSessionQueue] = useState<StudyItem[]>([])
+  const [sessionState, setSessionState] = useState<SessionState>('CARD')
+  const [currentLoot, setCurrentLoot] = useState<Item | null>(null)
   const [revealed, setRevealed] = useState(false)
   const [rating, setRating] = useState(false)
+  const [claiming, setClaiming] = useState(false)
   const [loading, setLoading] = useState(true)
   const [doneCount, setDoneCount] = useState(0)
-  const [expBurst, setExpBurst] = useState<{ id: number; amount: number } | null>(
-    null,
-  )
+  const [runRewards, setRunRewards] = useState<RunRewards>({ exp: 0, coins: 0 })
+  const [runCleared, setRunCleared] = useState(false)
+  const [fleeOpen, setFleeOpen] = useState(false)
+  const [bagOpen, setBagOpen] = useState(false)
+  const [bagBusy, setBagBusy] = useState(false)
+  const [safelyEscaped, setSafelyEscaped] = useState(false)
+  const [feedback, setFeedback] = useState<CombatFeedback[]>([])
+  const [shaking, setShaking] = useState(false)
+  const [damageFlash, setDamageFlash] = useState(false)
+  const feedbackSeq = useRef(0)
+  const timeoutsRef = useRef<number[]>([])
+  const trapResolved = useRef(false)
+  const runRewardsRef = useRef<RunRewards>({ exp: 0, coins: 0 })
+  const runCommitted = useRef(false)
 
-  const loadQueue = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false
     setLoading(true)
-    try {
-      const nextQueue = await getStudyQueue(deckId)
-      setQueue(nextQueue)
-      setRevealed(false)
-      setDoneCount(0)
-    } finally {
-      setLoading(false)
+    void getStudyQueue(deckId)
+      .then((batch) => {
+        if (cancelled) return
+        setSessionQueue(batch)
+        setSessionState('CARD')
+        setCurrentLoot(null)
+        setRevealed(false)
+        setDoneCount(0)
+        setRunRewards({ exp: 0, coins: 0 })
+        runRewardsRef.current = { exp: 0, coins: 0 }
+        runCommitted.current = false
+        setRunCleared(false)
+        setSafelyEscaped(false)
+        setBagOpen(false)
+        trapResolved.current = false
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
   }, [deckId])
 
   useEffect(() => {
-    void loadQueue()
-  }, [loadQueue])
+    return () => {
+      timeoutsRef.current.forEach((id) => window.clearTimeout(id))
+    }
+  }, [])
 
-  const current = queue[0]
+  function spawnFeedback(text: string, type: CombatFeedback['type']) {
+    feedbackSeq.current += 1
+    const id = Date.now() + feedbackSeq.current
+    setFeedback((prev) => [...prev, { id, text, type }])
+    const hide = window.setTimeout(() => {
+      setFeedback((prev) => prev.filter((item) => item.id !== id))
+    }, 1000)
+    timeoutsRef.current.push(hide)
+  }
 
-  async function handleRate(grade: Grade) {
+  function triggerShake() {
+    setShaking(false)
+    const start = window.setTimeout(() => setShaking(true), 0)
+    const stop = window.setTimeout(() => setShaking(false), 400)
+    timeoutsRef.current.push(start, stop)
+  }
+
+  function triggerDamageFlash() {
+    setDamageFlash(false)
+    const start = window.setTimeout(() => setDamageFlash(true), 0)
+    const stop = window.setTimeout(() => setDamageFlash(false), 450)
+    timeoutsRef.current.push(start, stop)
+  }
+
+  function bankRewards(exp: number, coins: number) {
+    if (exp <= 0 && coins <= 0) return
+    const next = {
+      exp: runRewardsRef.current.exp + Math.max(0, exp),
+      coins: runRewardsRef.current.coins + Math.max(0, coins),
+    }
+    runRewardsRef.current = next
+    setRunRewards(next)
+  }
+
+  function returnToCards() {
+    setCurrentLoot(null)
+    setSessionState('CARD')
+    trapResolved.current = false
+  }
+
+  async function completeDungeonRun() {
+    if (runCommitted.current) return
+    runCommitted.current = true
+    try {
+      const payout = runRewardsRef.current
+      const result = await commitRunRewards(payout.exp, payout.coins)
+      setRunCleared(true)
+      if (result.leveledUp) {
+        toast.success(`🎉 Level Up! You are now Level ${result.newLevel}!`)
+      }
+    } catch {
+      runCommitted.current = false
+      toast.error('Could not bank run rewards')
+    }
+  }
+
+  function fleeDungeon() {
+    runCommitted.current = true
+    runRewardsRef.current = { exp: 0, coins: 0 }
+    setRunRewards({ exp: 0, coins: 0 })
+    setFleeOpen(false)
+    navigate('/hero')
+  }
+
+  async function finishSafeEscape() {
+    if (runCommitted.current) return
+    runCommitted.current = true
+    setBagOpen(false)
+    try {
+      const payout = runRewardsRef.current
+      const result = await commitRunRewards(payout.exp, payout.coins)
+      setSafelyEscaped(true)
+      setRunCleared(true)
+      toast.success('Safely Escaped!')
+      if (result.leveledUp) {
+        toast.success(`🎉 Level Up! You are now Level ${result.newLevel}!`)
+      }
+      navigate('/hero')
+    } catch {
+      runCommitted.current = false
+      toast.error('Could not escape with your loot')
+    }
+  }
+
+  async function handleUseBagItem(itemId: string) {
+    if (bagBusy || finished) return
+    setBagBusy(true)
+    try {
+      if (itemId === 'escape_rope') {
+        await useInventoryItem(itemId)
+        await finishSafeEscape()
+        return
+      }
+      const result = await useInventoryItem(itemId)
+      feedbackFromEffect(result)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not use item')
+    } finally {
+      setBagBusy(false)
+    }
+  }
+
+  function feedbackFromEffect(result: {
+    heartsDelta: number
+    expDelta: number
+    message: string
+    recovered: boolean
+    becameExhausted: boolean
+  }) {
+    if (result.heartsDelta > 0) {
+      spawnFeedback(`+${result.heartsDelta} ❤️`, 'heal')
+    } else if (result.heartsDelta < 0) {
+      spawnFeedback(result.message || `${result.heartsDelta} ❤️`, 'damage')
+    }
+    if (result.expDelta > 0) {
+      spawnFeedback(`+${result.expDelta} EXP`, 'exp')
+      bankRewards(result.expDelta, 0)
+    }
+    if (result.becameExhausted) {
+      toast.error('Exhausted — restore a heart with a Health Potion.')
+    } else if (result.recovered) {
+      toast.success('A heart returns. You’re no longer exhausted.')
+    }
+  }
+
+  const current = sessionQueue[0]
+  const onCard = sessionState === 'CARD'
+  const finished = onCard && !current
+  const dungeonVictory = finished && doneCount > 0
+
+  useEffect(() => {
+    if (!dungeonVictory) return
+    void completeDungeonRun()
+  }, [dungeonVictory])
+
+  async function handleRateCard(grade: Grade) {
     if (!current || rating) return
 
     setRating(true)
     try {
       const wasNew = !current.review || current.review.state === 'new'
-      const updated = await rateCard(current.card.id, grade, current.review)
-      const award = await awardReviewExp(grade, wasNew)
-      if (award.leveledUp) {
-        toast.success(`🎉 Level Up! You are now Level ${award.newLevel}!`)
+      const answeringExhausted = stats.isExhausted
+      const willExhaust =
+        answeringExhausted || (grade === 1 && stats.hearts <= 1)
+      await rateCard(current.card.id, grade, current.review, {
+        exhausted: willExhaust,
+      })
+      const award = await awardReviewExp(grade, wasNew, { deferRewards: true })
+      if (award.becameExhausted) {
+        toast.error('Exhausted — restore a heart with a Health Potion.')
       }
-      if (award.expGained > 0 && (grade === 3 || grade === 4)) {
-        setExpBurst({ id: Date.now(), amount: award.expGained })
+
+      if (grade === 1) {
+        spawnFeedback('-1 ❤️', 'damage')
+        triggerShake()
+      } else if (grade === 3 || grade === 4) {
+        spawnFeedback(
+          answeringExhausted
+            ? `+${award.expGained} EXP (No ATK bonus)`
+            : `+${award.expGained} EXP`,
+          'exp',
+        )
+        if (award.coinsGained > 0) {
+          const loot = window.setTimeout(() => {
+            spawnFeedback(`+${award.coinsGained} 🪙`, 'loot')
+          }, 150)
+          timeoutsRef.current.push(loot)
+        }
+        bankRewards(award.expGained, award.coinsGained)
       }
+
       await recordStudyActivity()
       setDoneCount((n) => n + 1)
-      setQueue((prev) => {
-        const rest = prev.slice(1)
-        if (grade === 1) {
-          return [...rest, { card: current.card, review: updated }]
-        }
-        return rest
-      })
+      setSessionQueue((prev) => prev.slice(1))
       setRevealed(false)
+
+      const foundChest =
+        (grade === 3 || grade === 4) && Math.random() < CHEST_DROP_CHANCE
+      if (foundChest) {
+        setCurrentLoot(pickRandomLoot())
+        setSessionState('CHEST')
+      } else {
+        setCurrentLoot(null)
+        setSessionState('CARD')
+      }
     } finally {
       setRating(false)
     }
   }
 
-  const backLabel = deck?.name ?? 'All Cards'
+  function openChest() {
+    if (sessionState !== 'CHEST' || !currentLoot) return
+    const loot = currentLoot
+    trapResolved.current = false
+    setSessionState('LOOT')
+    if (loot.type === 'trap') {
+      void springTrap(loot)
+    }
+  }
+
+  async function springTrap(loot: Item) {
+    if (trapResolved.current) return
+    trapResolved.current = true
+    try {
+      const result = await applyItemEffect(loot.id, { deferRewards: true })
+      triggerShake()
+      triggerDamageFlash()
+      feedbackFromEffect(result)
+    } catch {
+      trapResolved.current = false
+      toast.error('The trap fizzled')
+    }
+  }
+
+  async function handleUseLoot() {
+    if (sessionState !== 'LOOT' || !currentLoot || claiming) return
+    if (currentLoot.type === 'trap') return
+    setClaiming(true)
+    try {
+      if (currentLoot.id === 'escape_rope') {
+        await finishSafeEscape()
+        return
+      }
+      const result = await applyItemEffect(currentLoot.id, { deferRewards: true })
+      feedbackFromEffect(result)
+      returnToCards()
+    } catch {
+      toast.error('Could not use the item')
+    } finally {
+      setClaiming(false)
+    }
+  }
+
+  async function handleStashLoot() {
+    if (sessionState !== 'LOOT' || !currentLoot || claiming) return
+    if (currentLoot.type === 'trap') return
+    setClaiming(true)
+    try {
+      await addInventoryItem(currentLoot.id)
+      toast.success(`${currentLoot.name} added to your bag`)
+      returnToCards()
+    } catch {
+      toast.error('Could not stash the loot')
+    } finally {
+      setClaiming(false)
+    }
+  }
 
   if ((deckId && deck === undefined) || loading) {
     return <p className="empty-state">Loading study session…</p>
@@ -162,17 +472,21 @@ export function StudyView() {
     return (
       <section>
         <p className="empty-state">Deck not found.</p>
-        <Link to="/cards" className="back-link">
-          <ArrowLeft size={16} aria-hidden />
-          Back to cards
+        <Link to="/hero" className="back-link">
+          Return to Hero
         </Link>
       </section>
     )
   }
 
-  const finished = !current
+  const cardDeckName =
+    (current?.card.deckId
+      ? deckById.get(current.card.deckId)?.name
+      : undefined) ??
+    deck?.name ??
+    'All Cards'
   const cardMeta = current
-    ? `${backLabel} / ${String(doneCount + 1).padStart(3, '0')}`
+    ? `${cardDeckName} / ${String(doneCount + 1).padStart(3, '0')}`
     : ''
   const currentDeckColor =
     deck?.color ??
@@ -181,67 +495,220 @@ export function StudyView() {
       : undefined)
 
   return (
-    <section className="study-view">
-      <Link to={deckId ? `/decks/${deckId}` : '/cards'} className="text-back">
-        <ArrowLeft size={16} aria-hidden />
-        {backLabel}
-      </Link>
+    <section
+      className={cn(
+        'study-view relative',
+        shaking && 'animate-shake',
+      )}
+    >
+      {finished || safelyEscaped ? null : (
+        <div className="dungeon-dock">
+          <button
+            type="button"
+            className="dungeon-dock-run"
+            onClick={() => setFleeOpen(true)}
+          >
+            <Undo2 size={18} aria-hidden />
+            Run
+          </button>
+          <button
+            type="button"
+            className="dungeon-dock-bag"
+            onClick={() => setBagOpen(true)}
+          >
+            <Backpack size={18} aria-hidden />
+            Bag
+          </button>
+        </div>
+      )}
 
       <header className="view-header">
-        <h1>Study</h1>
+        <h1>
+          {safelyEscaped
+            ? 'Safely Escaped!'
+            : dungeonVictory
+              ? 'Dungeon Cleared!'
+            : sessionState === 'LOOT' && currentLoot?.type === 'trap'
+              ? 'It’s a trap!'
+              : sessionState === 'CHEST' || sessionState === 'LOOT'
+                ? 'Treasure!'
+                : 'Dungeon Run'}
+        </h1>
         <p>
-          {finished
-            ? doneCount > 0
-              ? `Session complete — reviewed ${doneCount} card${doneCount === 1 ? '' : 's'}.`
-              : 'Nothing due right now.'
-            : `${queue.length} remaining · ${doneCount} done`}
+          {safelyEscaped
+            ? 'You kept the run loot and left the dungeon.'
+            : dungeonVictory
+            ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'}.`
+            : finished
+              ? 'Nothing due right now.'
+              : sessionState === 'CHEST'
+                ? 'A chest appeared. Swipe up to open it.'
+                : sessionState === 'LOOT' && currentLoot?.type === 'trap'
+                  ? 'The chest was a mimic. You take the hit.'
+                  : sessionState === 'LOOT'
+                    ? 'Use it now or stash it in your bag.'
+                    : `${sessionQueue.length} remaining · ${doneCount} done`}
         </p>
+        {finished || safelyEscaped ? null : (
+          <div className="study-hp">
+            <HeartsDisplay stats={stats} compact showMeta={false} />
+            <p className="run-bank">
+              Run loot · +{runRewards.exp} EXP · +{runRewards.coins} 🪙
+            </p>
+          </div>
+        )}
       </header>
 
-      {finished ? (
-        <div className="study-complete">
-          <p className="empty-state">
-            {doneCount > 0
-              ? 'Nice work. Come back when more cards are due.'
-              : 'Add cards or wait until reviews are due.'}
-          </p>
-          <div className="study-actions">
-            <button
-              type="button"
-              className="refresh-btn"
-              onClick={() => void loadQueue()}
-            >
-              Refresh queue
-            </button>
-            <Link to="/cards" className="back-link">
-              All cards
-            </Link>
+      <div className="study-card-stage">
+        {sessionState === 'CHEST' ? (
+          <ChestEncounter onOpen={openChest} />
+        ) : sessionState === 'LOOT' && currentLoot ? (
+          <LootReveal
+            item={currentLoot}
+            busy={claiming}
+            onUseNow={() => void handleUseLoot()}
+            onAddToInventory={() => void handleStashLoot()}
+            onContinue={returnToCards}
+          />
+        ) : finished || safelyEscaped ? (
+          <div className="study-complete">
+            {safelyEscaped || dungeonVictory ? (
+              <>
+                <PartyPopper className="session-complete-icon" size={36} aria-hidden />
+                <p className="empty-state">
+                  {safelyEscaped
+                    ? 'Safely Escaped! Your run loot is saved.'
+                    : runCleared
+                      ? 'Rewards are saved to your hero.'
+                      : 'Banking run rewards…'}
+                </p>
+                <p className="session-exp">
+                  Earned: +{runRewards.exp} EXP, +{runRewards.coins} coins
+                </p>
+              </>
+            ) : (
+              <p className="empty-state">
+                Add cards or wait until reviews are due.
+              </p>
+            )}
+            <div className="study-actions">
+              {safelyEscaped || dungeonVictory ? (
+                <button
+                  type="button"
+                  className="back-link"
+                  disabled={!runCleared}
+                  onClick={() => navigate('/hero')}
+                >
+                  Return to Hero
+                </button>
+              ) : (
+                <Link to="/hero" className="back-link">
+                  Return to Hero
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="study-card-stage">
+        ) : current ? (
           <StudyFlashcard
             key={`${current.card.id}-${doneCount}`}
             item={current}
             revealed={revealed}
             onReveal={() => setRevealed((value) => !value)}
-            onRate={handleRate}
+            onRate={handleRateCard}
             rating={rating}
             meta={cardMeta}
             deckColor={currentDeckColor}
           />
-          {expBurst ? (
+        ) : null}
+        <div
+          className="pointer-events-none absolute left-1/2 top-[38%] z-20 -translate-x-1/2"
+          aria-live="polite"
+        >
+          {feedback.map((item) => (
             <span
-              key={expBurst.id}
-              className="exp-burst"
-              aria-live="polite"
-              onAnimationEnd={() => setExpBurst(null)}
+              key={item.id}
+              className={cn(
+                'absolute left-1/2 -translate-x-1/2 whitespace-nowrap',
+                FEEDBACK_CLASS[item.type],
+                item.type === 'exp' &&
+                  item.text.includes('No ATK bonus') &&
+                  'text-sm text-gray-400',
+              )}
             >
-              + {expBurst.amount} EXP
+              {item.text}
             </span>
-          ) : null}
+          ))}
         </div>
-      )}
+      </div>
+      {damageFlash ? <div className="loot-damage-flash" aria-hidden /> : null}
+
+      <Dialog open={bagOpen} onOpenChange={setBagOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Inventory</DialogTitle>
+            <DialogDescription>
+              Only potions and escape ropes work in a run.
+            </DialogDescription>
+          </DialogHeader>
+          {(runBag ?? []).length === 0 ? (
+            <p className="m-0 text-sm text-muted-foreground">
+              No usable items. Loot a Health Potion or Escape Rope first.
+            </p>
+          ) : (
+            <ul className="m-0 grid list-none gap-2 p-0">
+              {(runBag ?? []).map((stack) => (
+                <li
+                  key={stack.id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <ItemIcon
+                      type={stack.item.type}
+                      itemId={stack.item.id}
+                      className="size-5"
+                    />
+                    <div className="min-w-0">
+                      <p className="m-0 text-sm font-semibold">
+                        {stack.item.name}{' '}
+                        <span className="text-xs font-medium text-muted-foreground">
+                          ×{stack.quantity}
+                        </span>
+                      </p>
+                      <p className="m-0 truncate text-xs text-muted-foreground">
+                        {stack.item.description}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={bagBusy}
+                    onClick={() => void handleUseBagItem(stack.itemId)}
+                  >
+                    Use
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={fleeOpen} onOpenChange={setFleeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Flee the dungeon?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to flee? You will lose all EXP and Coins
+              accumulated in this run!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={fleeDungeon}>Flee</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   )
 }

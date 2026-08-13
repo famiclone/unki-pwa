@@ -3,7 +3,7 @@ import { Toaster } from 'sonner'
 import { AppLayout } from './components/AppLayout'
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
 import { AllCardsView } from './views/AllCardsView'
-import { DashboardView } from './views/DashboardView'
+import { HeroView } from './views/HeroView'
 import { DecksView } from './views/DecksView'
 import { DeckEditorView } from './views/DeckEditorView'
 import { SettingsView } from './views/SettingsView'
@@ -19,7 +19,8 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/cards" replace />} />
           <Route path="cards" element={<AllCardsView />} />
-          <Route path="dashboard" element={<DashboardView />} />
+          <Route path="hero" element={<HeroView />} />
+          <Route path="dashboard" element={<Navigate to="/hero" replace />} />
           <Route path="decks" element={<DecksView />} />
           <Route path="decks/:deckId" element={<DeckEditorView />} />
           <Route path="study" element={<StudyView />} />

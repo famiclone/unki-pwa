@@ -1,10 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  BookOpen,
-  LayoutDashboard,
+  Backpack,
+  House,
   Library,
   Settings,
-  SquareStack,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -17,16 +16,11 @@ const sideItems = [
       pathname === '/decks' || /^\/decks\/[^/]+$/.test(pathname),
   },
   {
-    to: '/cards',
-    label: 'Cards',
-    icon: SquareStack,
-    isActive: (pathname: string) => pathname.startsWith('/cards'),
-  },
-  {
-    to: '/dashboard',
-    label: 'Dashboard',
-    icon: LayoutDashboard,
-    isActive: (pathname: string) => pathname.startsWith('/dashboard'),
+    to: '/hero',
+    label: 'Hero',
+    icon: Backpack,
+    isActive: (pathname: string) =>
+      pathname.startsWith('/hero') || pathname.startsWith('/dashboard'),
   },
   {
     to: '/settings',
@@ -38,8 +32,9 @@ const sideItems = [
 
 export function BottomNav() {
   const { pathname } = useLocation()
-  const leftItems = sideItems.slice(0, 2)
-  const rightItems = sideItems.slice(2)
+  const hubActive = pathname.startsWith('/cards') || pathname === '/'
+  const leftItems = sideItems.slice(0, 1)
+  const rightItems = sideItems.slice(1)
 
   return (
     <nav
@@ -47,6 +42,7 @@ export function BottomNav() {
       aria-label="Main"
     >
       <div className="grid h-16 grid-cols-5">
+        <div aria-hidden />
         {leftItems.map((item) => (
           <SideNavItem
             key={item.to}
@@ -57,11 +53,14 @@ export function BottomNav() {
 
         <div className="relative flex items-center justify-center">
           <NavLink
-            to="/study"
-            aria-label="Study"
-            className="absolute top-1/2 left-1/2 flex size-14 -translate-x-1/2 -translate-y-[70%] items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-xl no-underline"
+            to="/cards"
+            aria-label="Hub"
+            className={cn(
+              'absolute top-1/2 left-1/2 flex size-14 -translate-x-1/2 -translate-y-[70%] items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-xl no-underline',
+              hubActive && 'ring-2 ring-primary/40',
+            )}
           >
-            <BookOpen className="size-6" aria-hidden />
+            <House className="size-6" aria-hidden />
           </NavLink>
         </div>
 

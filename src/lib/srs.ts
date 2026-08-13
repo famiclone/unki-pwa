@@ -13,6 +13,15 @@ export const GRADE_LABELS: Record<Grade, string> = {
 const DAY_MS = 24 * 60 * 60 * 1000
 const DEFAULT_EASE = 2.5
 const MIN_EASE = 1.3
+/** Relearn delay after Again so the card leaves the current session. */
+export const AGAIN_RELEARN_MS = 5 * 60 * 1000
+/** Longer rest when the learner is exhausted (0 hearts). */
+export const EXHAUSTED_REST_MS = 12 * 60 * 60 * 1000
+
+export type ApplySm2Options = {
+  now?: number
+  exhausted?: boolean
+}
 
 /**
  * SM-2 working stats.
@@ -87,8 +96,9 @@ function gradeToQuality(grade: Grade): number {
 export function applySm2(
   current: SrsStats | Review | null | undefined,
   grade: Grade,
-  now = Date.now(),
+  options: ApplySm2Options = {},
 ): SrsStats {
+  const now = options.now ?? Date.now()
   const prev: SrsStats =
     current && 'easeFactor' in current
       ? current
@@ -98,7 +108,7 @@ export function applySm2(
   let { reps, interval, easeFactor } = prev
 
   if (q < 3) {
-    // Failed recall — restart the repetition count; review again soon.
+    // Failed recall — restart the repetition count; relearn later, not now.
     reps = 0
     interval = 0
   } else {
@@ -123,7 +133,7 @@ export function applySm2(
 
   const due =
     q < 3
-      ? now + 60_000 // Again: show again in ~1 minute within the session window
+      ? now + (options.exhausted ? EXHAUSTED_REST_MS : AGAIN_RELEARN_MS)
       : now + interval * DAY_MS
 
   const state: ReviewState =

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Plus } from 'lucide-react'
+import { Plus, Sword } from 'lucide-react'
 import { useDailyProgress } from '@/hooks/useDailyProgress'
 import { CardStatBlocks } from '@/components/StatsDashboard'
 import { Button } from '@/components/ui/button'
@@ -62,8 +62,8 @@ export function DailyProgress({ onAddCards, deckId }: DailyProgressProps) {
         className="h-16 w-full rounded-xl text-xl shadow-lg"
         onClick={startStudy}
       >
-        <BookOpen className="size-6" />
-        Study
+        <Sword className="size-6" />
+        Go
       </Button>
     </section>
   )

@@ -54,13 +54,16 @@ export async function rateCard(
   cardId: string,
   grade: Grade,
   currentReview?: Review | null,
+  options?: { exhausted?: boolean },
 ): Promise<Review> {
   const existing =
     currentReview === undefined
       ? ((await db.reviews.get(cardId)) ?? null)
       : currentReview
 
-  const next = applySm2(reviewToSrsStats(existing), grade)
+  const next = applySm2(reviewToSrsStats(existing), grade, {
+    exhausted: options?.exhausted,
+  })
   const review = srsStatsToReview(cardId, next)
   await db.reviews.put(review)
   return review
