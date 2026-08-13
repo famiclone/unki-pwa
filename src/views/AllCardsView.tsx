@@ -17,7 +17,6 @@ import {
   fileToBlob,
   type CardFormValues,
 } from '@/components/CardFormDialog'
-import { StatsDashboard } from '@/components/StatsDashboard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -165,8 +164,6 @@ export function AllCardsView() {
           </Button>
         </div>
       </header>
-
-      <StatsDashboard />
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="w-full sm:w-44">
