@@ -1,9 +1,10 @@
-import { useDeferredValue, useState } from 'react'
-import { Download, Plus, Search } from 'lucide-react'
+import { type ChangeEvent, useDeferredValue, useRef, useState } from 'react'
+import { Download, Plus, Search, Upload } from 'lucide-react'
 import {
   addCard,
   deleteCard,
   exportAllCards,
+  importDeck,
   resetCardProgress,
   updateCard,
   type Card,
@@ -36,7 +37,9 @@ export function AllCardsView() {
   const [editingCard, setEditingCard] = useState<Card | null>(null)
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   const { items, hasMore, loading, error, loadMore, refresh } = useInfiniteCards(
     deferredSearch,
@@ -129,6 +132,24 @@ export function AllCardsView() {
     }
   }
 
+  async function handleImport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setImporting(true)
+    setStatus(null)
+    try {
+      const deck = await importDeck(file)
+      setStatus(`Imported “${deck.name}”.`)
+      await refresh()
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Import failed.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <section className="space-y-4">
       <header className="space-y-1">
@@ -176,6 +197,24 @@ export function AllCardsView() {
           />
         </div>
 
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          aria-label="Import cards"
+          title="Import"
+          disabled={importing}
+          onClick={() => importInputRef.current?.click()}
+        >
+          <Upload />
+        </Button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".zip,application/zip"
+          hidden
+          onChange={handleImport}
+        />
         <Button
           type="button"
           variant="secondary"
