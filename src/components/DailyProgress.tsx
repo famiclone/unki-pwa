@@ -6,11 +6,17 @@ import { Button } from '@/components/ui/button'
 
 type DailyProgressProps = {
   onAddCards: () => void
+  /** When set, Study opens that deck; otherwise the full queue. */
+  deckId?: string | null
 }
 
-export function DailyProgress({ onAddCards }: DailyProgressProps) {
+export function DailyProgress({ onAddCards, deckId }: DailyProgressProps) {
   const navigate = useNavigate()
   const { cardsToStudy, loading } = useDailyProgress()
+
+  function startStudy() {
+    navigate(deckId ? `/study?deckId=${encodeURIComponent(deckId)}` : '/study')
+  }
 
   if (loading) {
     return (
@@ -54,7 +60,7 @@ export function DailyProgress({ onAddCards }: DailyProgressProps) {
       <Button
         type="button"
         className="h-16 w-full rounded-xl text-xl shadow-lg"
-        onClick={() => navigate('/study')}
+        onClick={startStudy}
       >
         <BookOpen className="size-6" />
         Study
