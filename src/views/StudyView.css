@@ -1,3 +1,57 @@
+.study-view {
+  position: relative;
+}
+
+.dungeon-dock {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  z-index: 40;
+  display: flex;
+  width: 100%;
+  max-width: 28rem;
+  transform: translateX(-50%);
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem calc(0.75rem + env(safe-area-inset-bottom));
+  border-x: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  background: var(--background);
+  box-sizing: border-box;
+}
+
+.dungeon-dock-run,
+.dungeon-dock-bag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--fg-color);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: 0 0.3125rem 1.25rem -12px rgba(0, 0, 0, 0.16);
+}
+
+.dungeon-dock-run {
+  flex: 1;
+}
+
+.dungeon-dock-bag {
+  flex: 0 0 auto;
+  min-width: 5.75rem;
+}
+
+.dungeon-dock-run:hover,
+.dungeon-dock-bag:hover {
+  filter: brightness(1.05);
+}
+
 .study-view .view-header {
   margin-bottom: 1.5rem;
 }
@@ -15,6 +69,14 @@
 
 .study-hp {
   margin-top: 0.85rem;
+}
+
+.run-bank {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: #c9a227;
 }
 
 .study-view .empty-state {

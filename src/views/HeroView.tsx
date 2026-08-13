@@ -149,9 +149,13 @@ export function HeroView() {
                 >
                   <ItemIcon
                     type={stack.item.type}
+                    itemId={stack.item.id}
                     className={cn(
                       'size-7',
-                      stack.item.type === 'consumable' && 'text-red-400',
+                      stack.item.id === 'escape_rope' && 'text-sky-300',
+                      stack.item.type === 'consumable' &&
+                        stack.item.id !== 'escape_rope' &&
+                        'text-red-400',
                       stack.item.type === 'scroll' && 'text-amber-300',
                       stack.item.type === 'trap' && 'text-red-500',
                     )}
@@ -179,7 +183,10 @@ export function HeroView() {
                 <div
                   className={cn(
                     'mb-1 flex size-16 items-center justify-center rounded-full border',
+                    selected.item.id === 'escape_rope' &&
+                      'border-sky-500/35 bg-sky-500/10 text-sky-600',
                     selected.item.type === 'consumable' &&
+                      selected.item.id !== 'escape_rope' &&
                       'border-red-500/30 bg-red-500/10 text-red-500',
                     selected.item.type === 'scroll' &&
                       'border-amber-500/35 bg-amber-500/10 text-amber-600',
@@ -187,7 +194,11 @@ export function HeroView() {
                       'border-red-700/40 bg-red-700/10 text-red-700',
                   )}
                 >
-                  <ItemIcon type={selected.item.type} className="size-8" />
+                  <ItemIcon
+                    type={selected.item.type}
+                    itemId={selected.item.id}
+                    className="size-8"
+                  />
                 </div>
                 <DialogTitle>{selected.item.name}</DialogTitle>
                 <DialogDescription>{selected.item.description}</DialogDescription>
@@ -196,10 +207,12 @@ export function HeroView() {
                 type="button"
                 className="w-full"
                 variant={selected.item.type === 'trap' ? 'destructive' : 'default'}
-                disabled={using}
+                disabled={using || selected.item.id === 'escape_rope'}
                 onClick={() => void handleUse()}
               >
-                Use Item
+                {selected.item.id === 'escape_rope'
+                  ? 'Dungeon only'
+                  : 'Use Item'}
               </Button>
             </>
           ) : null}

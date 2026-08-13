@@ -64,7 +64,10 @@ export async function buyItem(
 }
 
 /** Apply an item's effect to stats without consuming inventory (loot Use Now / traps). */
-export async function applyItemEffect(itemId: string): Promise<
+export async function applyItemEffect(
+  itemId: string,
+  options: { deferRewards?: boolean } = {},
+): Promise<
   ItemActionResult & {
     item: Item
     recovered: boolean
@@ -78,9 +81,11 @@ export async function applyItemEffect(itemId: string): Promise<
 
   const existing = await getGlobalStats()
   const result = item.action(existing)
+  const persistRewards = !options.deferRewards
   const next = normalizeStats({
     ...result.stats,
-    coins: existing.coins,
+    exp: persistRewards ? result.stats.exp : existing.exp,
+    coins: persistRewards ? result.stats.coins : existing.coins,
   })
   await db.stats.put(next)
   return {
@@ -89,7 +94,7 @@ export async function applyItemEffect(itemId: string): Promise<
     item,
     recovered: existing.isExhausted && next.hearts > 0,
     becameExhausted: !existing.isExhausted && next.hearts <= 0,
-    leveledUp: next.level > existing.level,
+    leveledUp: persistRewards && next.level > existing.level,
   }
 }
 

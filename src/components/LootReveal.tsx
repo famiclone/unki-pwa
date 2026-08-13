@@ -27,7 +27,7 @@ export function LootReveal({
           className={cn('loot-badge', `loot-badge-${item.type}`)}
           aria-hidden
         >
-          <ItemIcon type={item.type} />
+          <ItemIcon type={item.type} itemId={item.id} />
         </div>
         <h2 className="loot-name">{item.name}</h2>
         <p className="loot-desc">{item.description}</p>

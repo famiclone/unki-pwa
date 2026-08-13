@@ -135,10 +135,16 @@ export async function putGlobalStats(stats: Omit<Stats, 'id'> | Stats): Promise<
   return next
 }
 
-/** Add EXP, apply hearts, and persist derived combat stats. */
+export type AwardReviewOptions = {
+  /** Bank EXP/coins for a dungeon run; still persist heart damage. */
+  deferRewards?: boolean
+}
+
+/** Apply review combat. EXP/coins persist unless `deferRewards` is set. */
 export async function awardReviewExp(
   grade: Grade,
   wasNew: boolean,
+  options: AwardReviewOptions = {},
 ): Promise<CombatResult> {
   const existing = await getGlobalStats()
   const previousLevel = existing.level
@@ -148,13 +154,14 @@ export async function awardReviewExp(
     existing.attack,
     existing.isExhausted,
   )
-  const totalExp = existing.exp + expGained
+  const coinsGained = coinsForReview(grade)
+  const persistRewards = !options.deferRewards
+  const totalExp = persistRewards ? existing.exp + expGained : existing.exp
   const { currentLevel } = calculateLevelStats(totalExp)
   const { attack, maxHearts } = deriveCombatStats(currentLevel)
 
   let hearts = existing.hearts
   let becameExhausted = false
-  const coinsGained = coinsForReview(grade)
 
   if (grade === 1) {
     hearts = Math.max(0, snapHearts(hearts - AGAIN_HEART_LOSS))
@@ -166,6 +173,44 @@ export async function awardReviewExp(
     exp: totalExp,
     level: currentLevel,
     hearts,
+    maxHearts,
+    attack,
+    coins: persistRewards ? existing.coins + coinsGained : existing.coins,
+  })
+  await db.stats.put(next)
+  return {
+    expGained,
+    previousLevel,
+    newLevel: persistRewards ? currentLevel : previousLevel,
+    totalExp: persistRewards ? totalExp : existing.exp + expGained,
+    leveledUp: persistRewards && currentLevel > previousLevel,
+    hearts: next.hearts,
+    maxHearts: next.maxHearts,
+    attack: next.attack,
+    isExhausted: next.isExhausted,
+    becameExhausted,
+    recovered: existing.isExhausted && next.hearts > 0,
+    coins: persistRewards ? next.coins : existing.coins + coinsGained,
+    coinsGained,
+  }
+}
+
+/** Persist banked dungeon-run EXP and coins, then derive level / combat. */
+export async function commitRunRewards(
+  exp: number,
+  coins: number,
+): Promise<CombatResult> {
+  const existing = await getGlobalStats()
+  const previousLevel = existing.level
+  const expGained = Math.max(0, Math.floor(exp))
+  const coinsGained = Math.max(0, Math.floor(coins))
+  const totalExp = existing.exp + expGained
+  const { currentLevel } = calculateLevelStats(totalExp)
+  const { attack, maxHearts } = deriveCombatStats(currentLevel)
+  const next = normalizeStats({
+    ...existing,
+    exp: totalExp,
+    level: currentLevel,
     maxHearts,
     attack,
     coins: existing.coins + coinsGained,
@@ -181,8 +226,8 @@ export async function awardReviewExp(
     maxHearts: next.maxHearts,
     attack: next.attack,
     isExhausted: next.isExhausted,
-    becameExhausted,
-    recovered: existing.isExhausted && next.hearts > 0,
+    becameExhausted: false,
+    recovered: false,
     coins: next.coins,
     coinsGained,
   }

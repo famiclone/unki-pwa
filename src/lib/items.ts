@@ -3,7 +3,21 @@ import { calculateLevelStats, deriveCombatStats, snapHearts } from '@/lib/gamifi
 
 export type ItemType = 'consumable' | 'scroll' | 'trap'
 
-export type ItemId = 'health_potion' | 'knowledge_scroll' | 'mimic_trap'
+export type ItemId =
+  | 'health_potion'
+  | 'knowledge_scroll'
+  | 'mimic_trap'
+  | 'escape_rope'
+
+/** Consumables that can be used from the in-dungeon bag. */
+export const RUN_BAG_ITEM_IDS: readonly ItemId[] = [
+  'health_potion',
+  'escape_rope',
+]
+
+export function isRunBagItemId(itemId: string): itemId is ItemId {
+  return (RUN_BAG_ITEM_IDS as readonly string[]).includes(itemId)
+}
 
 /** Result of applying an item to the current stats row. */
 export type ItemActionResult = {
@@ -84,6 +98,22 @@ export const ITEMS: Record<ItemId, Item> = {
         heartsDelta: hearts - stats.hearts,
         expDelta: 0,
         message: '-1.5 ❤️',
+      }
+    },
+  },
+  escape_rope: {
+    id: 'escape_rope',
+    name: 'Escape Rope',
+    description:
+      'Use during a Dungeon Run to immediately teleport out and keep all accumulated EXP and Coins.',
+    type: 'consumable',
+    value: 40,
+    action(stats) {
+      return {
+        stats,
+        heartsDelta: 0,
+        expDelta: 0,
+        message: 'Only works during a dungeon run.',
       }
     },
   },

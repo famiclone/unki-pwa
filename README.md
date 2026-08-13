@@ -9,6 +9,7 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend �
 - Ratings show RPG floating combat text (hearts / EXP); Study again also shakes the screen. Exhausted reviews show EXP without the ATK bonus
 - Short questions (≤ 100 characters) are spoken on flip via the Web Speech API
 - Home shows Learned / Learning / New counts, streak, Level / rank / XP, hearts, coins, and ATK
+- Study is a dungeon run: the bottom nav is hidden and there is no Back link. Flee (door icon) warns that banked EXP and coins will be lost. The in-run bag can use Health Potions or an Escape Rope (keeps the run bank and returns you to Hero). SRS due dates save immediately; rewards only persist on a clear or a safe rope escape
 - Reviews award XP (I know +5 + ATK; new card +10; Study again awards none and costs 1 heart) and coins (I know +3). 0 hearts = Exhausted (no ATK bonus) until you restore a heart with a Health Potion
 - Hearts sit at the top of Study and no longer heal from Good answers. Open the Hero tab for rank, EXP, hearts, ATK, coins, and the backpack grid — tap a slot to use an item
 - After I know, a 15% roll can pause the queue on a chest; swipe up to open it, then Use Now or Add to Inventory. Mimic traps hit immediately (−1.5 hearts) with a red flash — only Continue is offered

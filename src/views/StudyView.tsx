@@ -1,19 +1,57 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, PartyPopper } from 'lucide-react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Backpack, PartyPopper, Undo2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { addInventoryItem, applyItemEffect, db, type Deck } from '../db'
+import {
+  addInventoryItem,
+  applyItemEffect,
+  db,
+  listInventory,
+  useInventoryItem,
+  type Deck,
+} from '../db'
 import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
 import type { Grade } from '../lib/srs'
-import { CHEST_DROP_CHANCE, pickRandomLoot, type Item } from '@/lib/items'
+import {
+  CHEST_DROP_CHANCE,
+  isRunBagItemId,
+  pickRandomLoot,
+  type Item,
+} from '@/lib/items'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ChestEncounter } from '@/components/ChestEncounter'
 import { Flashcard } from '@/components/Flashcard'
 import { HeartsDisplay } from '@/components/HeartsDisplay'
+import { ItemIcon } from '@/components/ItemIcon'
 import { LootReveal } from '@/components/LootReveal'
-import { awardReviewExp, recordStudyActivity, useStreak } from '@/hooks/useStreak'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  awardReviewExp,
+  commitRunRewards,
+  recordStudyActivity,
+  useStreak,
+} from '@/hooks/useStreak'
 import './StudyView.css'
+
+type RunRewards = { exp: number; coins: number }
 
 type SessionState = 'CARD' | 'CHEST' | 'LOOT'
 
@@ -100,6 +138,7 @@ function StudyFlashcard({
 }
 
 export function StudyView() {
+  const navigate = useNavigate()
   const { stats } = useStreak()
   const { deckId: deckIdFromPath } = useParams<{ deckId?: string }>()
   const [searchParams] = useSearchParams()
@@ -111,6 +150,10 @@ export function StudyView() {
     return (await db.decks.get(deckId)) ?? null
   }, [deckId])
   const decks = useLiveQuery(() => db.decks.toArray(), [])
+  const runBag = useLiveQuery(async () => {
+    const stacks = await listInventory()
+    return stacks.filter((stack) => isRunBagItemId(stack.itemId))
+  }, [])
   const deckById = useMemo(() => {
     const map = new Map<string, Deck>()
     for (const item of decks ?? []) map.set(item.id, item)
@@ -125,13 +168,20 @@ export function StudyView() {
   const [claiming, setClaiming] = useState(false)
   const [loading, setLoading] = useState(true)
   const [doneCount, setDoneCount] = useState(0)
-  const [sessionExp, setSessionExp] = useState(0)
+  const [runRewards, setRunRewards] = useState<RunRewards>({ exp: 0, coins: 0 })
+  const [runCleared, setRunCleared] = useState(false)
+  const [fleeOpen, setFleeOpen] = useState(false)
+  const [bagOpen, setBagOpen] = useState(false)
+  const [bagBusy, setBagBusy] = useState(false)
+  const [safelyEscaped, setSafelyEscaped] = useState(false)
   const [feedback, setFeedback] = useState<CombatFeedback[]>([])
   const [shaking, setShaking] = useState(false)
   const [damageFlash, setDamageFlash] = useState(false)
   const feedbackSeq = useRef(0)
   const timeoutsRef = useRef<number[]>([])
   const trapResolved = useRef(false)
+  const runRewardsRef = useRef<RunRewards>({ exp: 0, coins: 0 })
+  const runCommitted = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -144,7 +194,12 @@ export function StudyView() {
         setCurrentLoot(null)
         setRevealed(false)
         setDoneCount(0)
-        setSessionExp(0)
+        setRunRewards({ exp: 0, coins: 0 })
+        runRewardsRef.current = { exp: 0, coins: 0 }
+        runCommitted.current = false
+        setRunCleared(false)
+        setSafelyEscaped(false)
+        setBagOpen(false)
         trapResolved.current = false
       })
       .finally(() => {
@@ -185,21 +240,90 @@ export function StudyView() {
     timeoutsRef.current.push(start, stop)
   }
 
+  function bankRewards(exp: number, coins: number) {
+    if (exp <= 0 && coins <= 0) return
+    const next = {
+      exp: runRewardsRef.current.exp + Math.max(0, exp),
+      coins: runRewardsRef.current.coins + Math.max(0, coins),
+    }
+    runRewardsRef.current = next
+    setRunRewards(next)
+  }
+
   function returnToCards() {
     setCurrentLoot(null)
     setSessionState('CARD')
     trapResolved.current = false
   }
 
+  async function completeDungeonRun() {
+    if (runCommitted.current) return
+    runCommitted.current = true
+    try {
+      const payout = runRewardsRef.current
+      const result = await commitRunRewards(payout.exp, payout.coins)
+      setRunCleared(true)
+      if (result.leveledUp) {
+        toast.success(`🎉 Level Up! You are now Level ${result.newLevel}!`)
+      }
+    } catch {
+      runCommitted.current = false
+      toast.error('Could not bank run rewards')
+    }
+  }
+
+  function fleeDungeon() {
+    runCommitted.current = true
+    runRewardsRef.current = { exp: 0, coins: 0 }
+    setRunRewards({ exp: 0, coins: 0 })
+    setFleeOpen(false)
+    navigate('/hero')
+  }
+
+  async function finishSafeEscape() {
+    if (runCommitted.current) return
+    runCommitted.current = true
+    setBagOpen(false)
+    try {
+      const payout = runRewardsRef.current
+      const result = await commitRunRewards(payout.exp, payout.coins)
+      setSafelyEscaped(true)
+      setRunCleared(true)
+      toast.success('Safely Escaped!')
+      if (result.leveledUp) {
+        toast.success(`🎉 Level Up! You are now Level ${result.newLevel}!`)
+      }
+      navigate('/hero')
+    } catch {
+      runCommitted.current = false
+      toast.error('Could not escape with your loot')
+    }
+  }
+
+  async function handleUseBagItem(itemId: string) {
+    if (bagBusy || finished) return
+    setBagBusy(true)
+    try {
+      if (itemId === 'escape_rope') {
+        await useInventoryItem(itemId)
+        await finishSafeEscape()
+        return
+      }
+      const result = await useInventoryItem(itemId)
+      feedbackFromEffect(result)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not use item')
+    } finally {
+      setBagBusy(false)
+    }
+  }
+
   function feedbackFromEffect(result: {
     heartsDelta: number
     expDelta: number
     message: string
-    leveledUp: boolean
     recovered: boolean
     becameExhausted: boolean
-    newLevel?: number
-    stats: { level: number }
   }) {
     if (result.heartsDelta > 0) {
       spawnFeedback(`+${result.heartsDelta} ❤️`, 'heal')
@@ -208,10 +332,7 @@ export function StudyView() {
     }
     if (result.expDelta > 0) {
       spawnFeedback(`+${result.expDelta} EXP`, 'exp')
-      setSessionExp((n) => n + result.expDelta)
-    }
-    if (result.leveledUp) {
-      toast.success(`🎉 Level Up! You are now Level ${result.stats.level}!`)
+      bankRewards(result.expDelta, 0)
     }
     if (result.becameExhausted) {
       toast.error('Exhausted — restore a heart with a Health Potion.')
@@ -221,6 +342,14 @@ export function StudyView() {
   }
 
   const current = sessionQueue[0]
+  const onCard = sessionState === 'CARD'
+  const finished = onCard && !current
+  const dungeonVictory = finished && doneCount > 0
+
+  useEffect(() => {
+    if (!dungeonVictory) return
+    void completeDungeonRun()
+  }, [dungeonVictory])
 
   async function handleRateCard(grade: Grade) {
     if (!current || rating) return
@@ -234,10 +363,7 @@ export function StudyView() {
       await rateCard(current.card.id, grade, current.review, {
         exhausted: willExhaust,
       })
-      const award = await awardReviewExp(grade, wasNew)
-      if (award.leveledUp) {
-        toast.success(`🎉 Level Up! You are now Level ${award.newLevel}!`)
-      }
+      const award = await awardReviewExp(grade, wasNew, { deferRewards: true })
       if (award.becameExhausted) {
         toast.error('Exhausted — restore a heart with a Health Potion.')
       }
@@ -258,11 +384,11 @@ export function StudyView() {
           }, 150)
           timeoutsRef.current.push(loot)
         }
+        bankRewards(award.expGained, award.coinsGained)
       }
 
       await recordStudyActivity()
       setDoneCount((n) => n + 1)
-      setSessionExp((n) => n + award.expGained)
       setSessionQueue((prev) => prev.slice(1))
       setRevealed(false)
 
@@ -294,7 +420,7 @@ export function StudyView() {
     if (trapResolved.current) return
     trapResolved.current = true
     try {
-      const result = await applyItemEffect(loot.id)
+      const result = await applyItemEffect(loot.id, { deferRewards: true })
       triggerShake()
       triggerDamageFlash()
       feedbackFromEffect(result)
@@ -309,7 +435,11 @@ export function StudyView() {
     if (currentLoot.type === 'trap') return
     setClaiming(true)
     try {
-      const result = await applyItemEffect(currentLoot.id)
+      if (currentLoot.id === 'escape_rope') {
+        await finishSafeEscape()
+        return
+      }
+      const result = await applyItemEffect(currentLoot.id, { deferRewards: true })
       feedbackFromEffect(result)
       returnToCards()
     } catch {
@@ -344,16 +474,13 @@ export function StudyView() {
     return (
       <section>
         <p className="empty-state">Deck not found.</p>
-        <Link to="/cards" className="back-link">
-          <ArrowLeft size={16} aria-hidden />
-          Back to cards
+        <Link to="/hero" className="back-link">
+          Return to Hero
         </Link>
       </section>
     )
   }
 
-  const onCard = sessionState === 'CARD'
-  const finished = onCard && !current
   const cardMeta = current
     ? `${backLabel} / ${String(doneCount + 1).padStart(3, '0')}`
     : ''
@@ -370,37 +497,60 @@ export function StudyView() {
         shaking && 'animate-shake',
       )}
     >
-      <Link to={deckId ? `/decks/${deckId}` : '/cards'} className="text-back">
-        <ArrowLeft size={16} aria-hidden />
-        {backLabel}
-      </Link>
+      {finished || safelyEscaped ? null : (
+        <div className="dungeon-dock">
+          <button
+            type="button"
+            className="dungeon-dock-run"
+            onClick={() => setFleeOpen(true)}
+          >
+            <Undo2 size={18} aria-hidden />
+            Run
+          </button>
+          <button
+            type="button"
+            className="dungeon-dock-bag"
+            onClick={() => setBagOpen(true)}
+          >
+            <Backpack size={18} aria-hidden />
+            Bag
+          </button>
+        </div>
+      )}
 
       <header className="view-header">
         <h1>
-          {finished && doneCount > 0
-            ? 'Session Complete!'
+          {safelyEscaped
+            ? 'Safely Escaped!'
+            : dungeonVictory
+              ? 'Dungeon Cleared!'
             : sessionState === 'LOOT' && currentLoot?.type === 'trap'
               ? 'It’s a trap!'
               : sessionState === 'CHEST' || sessionState === 'LOOT'
                 ? 'Treasure!'
-                : 'Study'}
+                : 'Dungeon Run'}
         </h1>
         <p>
-          {finished
-            ? doneCount > 0
-              ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'}.`
-              : 'Nothing due right now.'
-            : sessionState === 'CHEST'
-              ? 'A chest appeared. Swipe up to open it.'
-              : sessionState === 'LOOT' && currentLoot?.type === 'trap'
-                ? 'The chest was a mimic. You take the hit.'
-                : sessionState === 'LOOT'
-                  ? 'Use it now or stash it in your bag.'
-                : `${sessionQueue.length} remaining · ${doneCount} done`}
+          {safelyEscaped
+            ? 'You kept the run loot and left the dungeon.'
+            : dungeonVictory
+            ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'}.`
+            : finished
+              ? 'Nothing due right now.'
+              : sessionState === 'CHEST'
+                ? 'A chest appeared. Swipe up to open it.'
+                : sessionState === 'LOOT' && currentLoot?.type === 'trap'
+                  ? 'The chest was a mimic. You take the hit.'
+                  : sessionState === 'LOOT'
+                    ? 'Use it now or stash it in your bag.'
+                    : `${sessionQueue.length} remaining · ${doneCount} done`}
         </p>
-        {finished ? null : (
+        {finished || safelyEscaped ? null : (
           <div className="study-hp">
-            <HeartsDisplay stats={stats} compact />
+            <HeartsDisplay stats={stats} compact showMeta={false} />
+            <p className="run-bank">
+              Run loot · +{runRewards.exp} EXP · +{runRewards.coins} 🪙
+            </p>
           </div>
         )}
       </header>
@@ -416,16 +566,21 @@ export function StudyView() {
             onAddToInventory={() => void handleStashLoot()}
             onContinue={returnToCards}
           />
-        ) : finished ? (
+        ) : finished || safelyEscaped ? (
           <div className="study-complete">
-            {doneCount > 0 ? (
+            {safelyEscaped || dungeonVictory ? (
               <>
                 <PartyPopper className="session-complete-icon" size={36} aria-hidden />
                 <p className="empty-state">
-                  Nice work. Missed cards come back in 5 minutes
-                  {stats.isExhausted ? ', or after a longer rest if you’re exhausted' : ''}.
+                  {safelyEscaped
+                    ? 'Safely Escaped! Your run loot is saved.'
+                    : runCleared
+                      ? 'Rewards are saved to your hero.'
+                      : 'Banking run rewards…'}
                 </p>
-                <p className="session-exp">+{sessionExp} EXP this session</p>
+                <p className="session-exp">
+                  Earned: +{runRewards.exp} EXP, +{runRewards.coins} coins
+                </p>
               </>
             ) : (
               <p className="empty-state">
@@ -433,9 +588,20 @@ export function StudyView() {
               </p>
             )}
             <div className="study-actions">
-              <Link to="/cards" className="back-link">
-                Return to Home
-              </Link>
+              {safelyEscaped || dungeonVictory ? (
+                <button
+                  type="button"
+                  className="back-link"
+                  disabled={!runCleared}
+                  onClick={() => navigate('/hero')}
+                >
+                  Return to Hero
+                </button>
+              ) : (
+                <Link to="/hero" className="back-link">
+                  Return to Hero
+                </Link>
+              )}
             </div>
           </div>
         ) : current ? (
@@ -471,6 +637,74 @@ export function StudyView() {
         </div>
       </div>
       {damageFlash ? <div className="loot-damage-flash" aria-hidden /> : null}
+
+      <Dialog open={bagOpen} onOpenChange={setBagOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Inventory</DialogTitle>
+            <DialogDescription>
+              Only potions and escape ropes work in a run.
+            </DialogDescription>
+          </DialogHeader>
+          {(runBag ?? []).length === 0 ? (
+            <p className="m-0 text-sm text-muted-foreground">
+              No usable items. Loot a Health Potion or Escape Rope first.
+            </p>
+          ) : (
+            <ul className="m-0 grid list-none gap-2 p-0">
+              {(runBag ?? []).map((stack) => (
+                <li
+                  key={stack.id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <ItemIcon
+                      type={stack.item.type}
+                      itemId={stack.item.id}
+                      className="size-5"
+                    />
+                    <div className="min-w-0">
+                      <p className="m-0 text-sm font-semibold">
+                        {stack.item.name}{' '}
+                        <span className="text-xs font-medium text-muted-foreground">
+                          ×{stack.quantity}
+                        </span>
+                      </p>
+                      <p className="m-0 truncate text-xs text-muted-foreground">
+                        {stack.item.description}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={bagBusy}
+                    onClick={() => void handleUseBagItem(stack.itemId)}
+                  >
+                    Use
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={fleeOpen} onOpenChange={setFleeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Flee the dungeon?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to flee? You will lose all EXP and Coins
+              accumulated in this run!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={fleeDungeon}>Flee</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   )
 }
