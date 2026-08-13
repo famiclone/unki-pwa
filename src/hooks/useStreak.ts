@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, GLOBAL_STATS_ID, type Stats } from '@/db/db'
+import { db, GLOBAL_STATS_ID, type DailyLog, type Stats } from '@/db/db'
 
 /** Format a Date as local YYYY-MM-DD (never UTC). */
 export function toLocalDateString(date = new Date()): string {
@@ -66,6 +66,25 @@ export async function updateStreak(now = new Date()): Promise<Stats> {
   return next
 }
 
+/** Increment today's dailyLog after a card rating. Creates the row if missing. */
+export async function logDailyReview(now = new Date()): Promise<DailyLog> {
+  const today = toLocalDateString(now)
+  const existing = await db.dailyLog.get(today)
+  const next: DailyLog = {
+    id: today,
+    cardsReviewed: (existing?.cardsReviewed ?? 0) + 1,
+    didStudy: true,
+  }
+  await db.dailyLog.put(next)
+  return next
+}
+
+/** Record a review: keep the streak, then log the day's activity. */
+export async function recordStudyActivity(now = new Date()): Promise<void> {
+  await updateStreak(now)
+  await logDailyReview(now)
+}
+
 export async function getGlobalStats(): Promise<Stats> {
   return (await db.stats.get(GLOBAL_STATS_ID)) ?? createDefaultStats()
 }
@@ -91,5 +110,7 @@ export function useStreak() {
     isActive: displayStreak > 0,
     loading: stats === undefined,
     updateStreak,
+    logDailyReview,
+    recordStudyActivity,
   }
 }

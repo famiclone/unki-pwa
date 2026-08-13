@@ -6,7 +6,7 @@ import { db } from '../db'
 import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
 import type { Grade } from '../lib/srs'
 import { Flashcard } from '@/components/Flashcard'
-import { updateStreak } from '@/hooks/useStreak'
+import { recordStudyActivity } from '@/hooks/useStreak'
 import './StudyView.css'
 
 const STUDY_ACTIONS: Array<{ grade: Grade; label: string; className: string }> =
@@ -109,7 +109,7 @@ export function StudyView() {
     setRating(true)
     try {
       const updated = await rateCard(current.card.id, grade, current.review)
-      await updateStreak()
+      await recordStudyActivity()
       setDoneCount((n) => n + 1)
       setQueue((prev) => {
         const rest = prev.slice(1)

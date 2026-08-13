@@ -1,7 +1,7 @@
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { createInitialSrsStats, srsStatsToReview } from '../lib/srs'
-import { db, type Card, type Deck, type Stats } from './db'
+import { db, type Card, type Deck, type DailyLog, type Stats } from './db'
 import { getGlobalStats, putGlobalStats } from '@/hooks/useStreak'
 
 export const DECK_EXPORT_VERSION = 2 as const
@@ -21,6 +21,12 @@ export type ExportedStats = {
   lastStudyDate: string
 }
 
+export type ExportedDailyLog = {
+  id: string
+  cardsReviewed: number
+  didStudy: boolean
+}
+
 export type ExportedDeckJson = {
   version: 1 | typeof DECK_EXPORT_VERSION
   deck: {
@@ -30,6 +36,8 @@ export type ExportedDeckJson = {
   cards: ExportedCard[]
   /** Global streak stats (export v2+). */
   stats?: ExportedStats
+  /** Daily review log for the week chart. */
+  dailyLog?: ExportedDailyLog[]
 }
 
 function extensionForMime(mime: string): string {
@@ -93,11 +101,19 @@ async function buildCardsZip(
   }
 
   if (includeStats) {
-    const stats = await getGlobalStats()
+    const [stats, dailyLog] = await Promise.all([
+      getGlobalStats(),
+      db.dailyLog.toArray(),
+    ])
     payload.stats = {
       currentStreak: stats.currentStreak,
       lastStudyDate: stats.lastStudyDate,
     }
+    payload.dailyLog = dailyLog.map((entry) => ({
+      id: entry.id,
+      cardsReviewed: entry.cardsReviewed,
+      didStudy: entry.didStudy,
+    }))
   }
 
   zip.file('deck.json', JSON.stringify(payload, null, 2))
@@ -197,6 +213,25 @@ async function mergeImportedStats(incoming: ExportedStats): Promise<void> {
   await putGlobalStats(next)
 }
 
+async function mergeImportedDailyLog(incoming: ExportedDailyLog[]): Promise<void> {
+  for (const entry of incoming) {
+    if (typeof entry?.id !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(entry.id)) {
+      continue
+    }
+    const existing = await db.dailyLog.get(entry.id)
+    const cardsReviewed = Math.max(
+      existing?.cardsReviewed ?? 0,
+      Math.max(0, Math.floor(entry.cardsReviewed || 0)),
+    )
+    const next: DailyLog = {
+      id: entry.id,
+      cardsReviewed,
+      didStudy: Boolean(existing?.didStudy || entry.didStudy || cardsReviewed > 0),
+    }
+    await db.dailyLog.put(next)
+  }
+}
+
 /**
  * Read a .zip File with JSZip, parse deck.json, restore images, and bulk-add into Dexie.
  */
@@ -281,6 +316,9 @@ export async function importDeck(file: File): Promise<Deck> {
   const importedStats = parseExportedStats(raw.stats)
   if (importedStats) {
     await mergeImportedStats(importedStats)
+  }
+  if (Array.isArray(raw.dailyLog)) {
+    await mergeImportedDailyLog(raw.dailyLog)
   }
 
   return newDeck
