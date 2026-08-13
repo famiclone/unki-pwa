@@ -20,3 +20,5 @@ Database Schema (Dexie):
 - Table 'decks': id (string), name (string), createdAt (number).
 - Table 'cards': id (string), deckId (string), front (string), romaji (string, optional), back (string), example (string, optional), image (Blob, optional), createdAt (number).
 - Table 'reviews': cardId (string), state (string: 'new' | 'learning' | 'review'), due (number - timestamp), stability (number), difficulty (number), reps (number).
+- Table 'stats': id (string), currentStreak (number), lastStudyDate (string - 'YYYY-MM-DD').
+- Table 'dailyLog': id (string, unique as 'YYYY-MM-DD'), cardsReviewed (number), didStudy (boolean).
