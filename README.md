@@ -7,7 +7,8 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend â
 - Tap a card to flip (true 3D faces). The front uses the deck color; the back follows light/dark theme
 - After the answer is showing, swipe **left** (Study again) or **right** (I know), or use the buttons
 - Short questions (â‰¤ 100 characters) are spoken on flip via the Web Speech API
-- Home shows Learned / Learning / New counts; the week chart lives on Dashboard
+- Home shows Learned / Learning / New counts, streak, and Level / rank / XP; the week chart lives on Dashboard
+- Reviews award XP (I know +5, new card bonus +10; Study again awards none). Level-ups toast during study
 
 ## Stack
 

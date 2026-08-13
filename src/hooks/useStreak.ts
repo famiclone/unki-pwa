@@ -1,5 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, GLOBAL_STATS_ID, type DailyLog, type Stats } from '@/db/db'
+import {
+  calculateLevelStats,
+  expForReview,
+  type ExpAward,
+} from '@/lib/gamification'
+import type { Grade } from '@/lib/srs'
 
 /** Format a Date as local YYYY-MM-DD (never UTC). */
 export function toLocalDateString(date = new Date()): string {
@@ -21,6 +27,20 @@ export function createDefaultStats(): Stats {
     id: GLOBAL_STATS_ID,
     currentStreak: 0,
     lastStudyDate: '',
+    exp: 0,
+    level: 1,
+  }
+}
+
+export function normalizeStats(stats?: Partial<Stats> | null): Stats {
+  const exp = Math.max(0, Math.floor(stats?.exp ?? 0))
+  return {
+    id: GLOBAL_STATS_ID,
+    currentStreak: Math.max(0, Math.floor(stats?.currentStreak ?? 0)),
+    lastStudyDate:
+      typeof stats?.lastStudyDate === 'string' ? stats.lastStudyDate : '',
+    exp,
+    level: calculateLevelStats(exp).currentLevel,
   }
 }
 
@@ -45,7 +65,7 @@ export function getDisplayStreak(stats: Stats | null | undefined): number {
 export async function updateStreak(now = new Date()): Promise<Stats> {
   const today = toLocalDateString(now)
   const yesterday = toLocalYesterdayString(now)
-  const existing = (await db.stats.get(GLOBAL_STATS_ID)) ?? createDefaultStats()
+  const existing = normalizeStats(await db.stats.get(GLOBAL_STATS_ID))
 
   if (existing.lastStudyDate === today) {
     return existing
@@ -56,11 +76,11 @@ export async function updateStreak(now = new Date()): Promise<Stats> {
     currentStreak = existing.currentStreak + 1
   }
 
-  const next: Stats = {
-    id: GLOBAL_STATS_ID,
+  const next = normalizeStats({
+    ...existing,
     currentStreak,
     lastStudyDate: today,
-  }
+  })
 
   await db.stats.put(next)
   return next
@@ -86,18 +106,38 @@ export async function recordStudyActivity(now = new Date()): Promise<void> {
 }
 
 export async function getGlobalStats(): Promise<Stats> {
-  return (await db.stats.get(GLOBAL_STATS_ID)) ?? createDefaultStats()
+  return normalizeStats(await db.stats.get(GLOBAL_STATS_ID))
 }
 
 export async function putGlobalStats(stats: Omit<Stats, 'id'> | Stats): Promise<Stats> {
-  const next: Stats = {
-    id: GLOBAL_STATS_ID,
-    currentStreak: Math.max(0, Math.floor(stats.currentStreak)),
-    lastStudyDate:
-      typeof stats.lastStudyDate === 'string' ? stats.lastStudyDate : '',
-  }
+  const next = normalizeStats(stats)
   await db.stats.put(next)
   return next
+}
+
+/** Add EXP for a rated card and persist the derived level. */
+export async function awardReviewExp(
+  grade: Grade,
+  wasNew: boolean,
+): Promise<ExpAward> {
+  const existing = await getGlobalStats()
+  const previousLevel = existing.level
+  const expGained = expForReview(grade, wasNew)
+  const totalExp = existing.exp + expGained
+  const { currentLevel } = calculateLevelStats(totalExp)
+  const next = normalizeStats({
+    ...existing,
+    exp: totalExp,
+    level: currentLevel,
+  })
+  await db.stats.put(next)
+  return {
+    expGained,
+    previousLevel,
+    newLevel: currentLevel,
+    totalExp,
+    leveledUp: currentLevel > previousLevel,
+  }
 }
 
 export function useStreak() {
