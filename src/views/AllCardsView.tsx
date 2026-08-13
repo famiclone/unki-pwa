@@ -15,7 +15,6 @@ import { useInfiniteCards } from '@/hooks/useInfiniteCards'
 import { CardList } from '@/components/CardList'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { DailyProgress } from '@/components/DailyProgress'
-import { StatsDashboard } from '@/components/StatsDashboard'
 import {
   CardFormDialog,
   fileToBlob,
@@ -152,7 +151,6 @@ export function AllCardsView() {
     <section className="flex flex-col gap-8">
       <WelcomeBanner />
       <DailyProgress onAddCards={openCreate} />
-      <StatsDashboard />
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

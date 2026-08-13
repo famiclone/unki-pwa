@@ -6,7 +6,7 @@ export function DashboardView() {
       <header className="space-y-1">
         <h1 className="m-0 text-3xl tracking-tight">Dashboard</h1>
         <p className="m-0 text-sm text-muted-foreground">
-          Your weekly progress, streak, and card states at a glance.
+          Your weekly progress and streak at a glance.
         </p>
       </header>
 
