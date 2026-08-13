@@ -6,10 +6,18 @@ import {
   DeckFormDialog,
   type DeckFormData,
 } from '../components/DeckFormDialog'
-import './DecksView.css'
+import { Button } from '@/components/ui/button'
+import { useDeckStats } from '@/hooks/useDeckStats'
+import {
+  DEFAULT_DECK_COLOR,
+  getContrastYIQ,
+  normalizeHexColor,
+} from '@/lib/colorUtils'
+import { cn } from '@/lib/utils'
 
 export function DecksView() {
   const { decks, createDeck, updateDeck, deleteDeck } = useDb()
+  const deckStats = useDeckStats()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null)
   const [importing, setImporting] = useState(false)
@@ -35,6 +43,7 @@ export function DecksView() {
         name: deckData.name,
         description: deckData.description ?? '',
         image: deckData.image,
+        color: deckData.color,
       })
       setStatus('Deck updated.')
       return
@@ -44,6 +53,7 @@ export function DecksView() {
       name: deckData.name,
       description: deckData.description,
       image: deckData.image,
+      color: deckData.color,
     })
     setStatus('Deck created.')
   }
@@ -87,26 +97,28 @@ export function DecksView() {
   }
 
   return (
-    <section className="decks-view">
-      <header className="view-header">
-        <h1>Decks</h1>
-        <p>Create decks and open one to manage cards.</p>
+    <section className="flex flex-col gap-6">
+      <header className="space-y-1">
+        <h1 className="m-0 text-3xl tracking-tight">Decks</h1>
+        <p className="m-0 text-sm text-muted-foreground">
+          Color-coded collections you can study and share.
+        </p>
       </header>
 
-      <div className="header-actions">
-        <button type="button" className="secondary-btn" onClick={openCreate}>
-          <Plus size={18} aria-hidden />
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" onClick={openCreate}>
+          <Plus />
           New deck
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="secondary-btn"
+          variant="secondary"
           disabled={importing}
           onClick={() => importInputRef.current?.click()}
         >
-          <Upload size={18} aria-hidden />
+          <Upload />
           {importing ? 'Importing…' : 'Import'}
-        </button>
+        </Button>
         <input
           ref={importInputRef}
           type="file"
@@ -116,62 +128,137 @@ export function DecksView() {
         />
       </div>
 
-      {status ? <p className="status-message">{status}</p> : null}
+      {status ? <p className="text-sm text-foreground">{status}</p> : null}
 
       {decks.length === 0 ? (
-        <p className="empty-state">No decks yet. Create one to get started.</p>
+        <p className="py-8 text-sm text-muted-foreground">
+          No decks yet. Create one to get started.
+        </p>
       ) : (
-        <ul className="deck-list">
-          {decks.map((deck) => (
-            <li key={deck.id} className="deck-item">
-              <Link to={`/decks/${deck.id}`} className="deck-link">
-                <span className="deck-name">{deck.name}</span>
-                {deck.description ? (
-                  <span className="deck-meta">{deck.description}</span>
-                ) : null}
-                <span className="deck-meta">
-                  {new Date(deck.createdAt).toLocaleDateString()}
-                </span>
-              </Link>
-              <div className="deck-actions">
-                <button
-                  type="button"
-                  className="study-link"
-                  aria-label={`Edit ${deck.name}`}
-                  title="Edit"
-                  onClick={() => openEdit(deck)}
+        <ul className="flex flex-col gap-4">
+          {decks.map((deck) => {
+            const color = normalizeHexColor(deck.color ?? DEFAULT_DECK_COLOR)
+            const contrast = getContrastYIQ(color)
+            const isDarkText = contrast === 'text-black'
+            const stats = deckStats[deck.id] ?? { totalCards: 0, dueToday: 0 }
+
+            return (
+              <li key={deck.id}>
+                <article
+                  className={cn(
+                    'relative overflow-hidden rounded-3xl p-5 shadow-sm',
+                    contrast,
+                  )}
+                  style={{ backgroundColor: color }}
                 >
-                  <Pencil size={18} />
-                </button>
-                <button
-                  type="button"
-                  className="study-link"
-                  aria-label={`Export ${deck.name}`}
-                  title="Export"
-                  disabled={exportingId === deck.id}
-                  onClick={() => void handleExport(deck.id)}
-                >
-                  <Download size={18} />
-                </button>
-                <Link
-                  to={`/decks/${deck.id}/study`}
-                  className="study-link"
-                  aria-label={`Study ${deck.name}`}
-                  title="Study"
-                >
-                  <BookOpen size={18} />
-                </Link>
-                <button
-                  type="button"
-                  className="icon-danger"
-                  aria-label={`Delete ${deck.name}`}
-                  onClick={() => handleDelete(deck.id, deck.name)}
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            </li>
-          ))}
+                  <Link
+                    to={`/decks/${deck.id}`}
+                    className={cn(
+                      'block no-underline',
+                      contrast,
+                    )}
+                  >
+                    <h2 className="m-0 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
+                      {deck.name}
+                    </h2>
+                    {deck.description ? (
+                      <p className="mt-1 mb-0 line-clamp-2 text-sm opacity-80">
+                        {deck.description}
+                      </p>
+                    ) : null}
+                  </Link>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span
+                      className={cn(
+                        'rounded-full px-3 py-1 text-xs font-bold',
+                        isDarkText
+                          ? 'bg-black text-white'
+                          : 'bg-white text-black',
+                      )}
+                    >
+                      {stats.totalCards} cards
+                    </span>
+                    <span
+                      className={cn(
+                        'rounded-full px-3 py-1 text-xs font-bold',
+                        isDarkText
+                          ? 'bg-black text-white'
+                          : 'bg-white text-black',
+                      )}
+                    >
+                      {stats.dueToday} due today
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className={cn(
+                        'size-9',
+                        isDarkText
+                          ? 'text-black hover:bg-black/10'
+                          : 'text-white hover:bg-white/15',
+                      )}
+                      aria-label={`Edit ${deck.name}`}
+                      onClick={() => openEdit(deck)}
+                    >
+                      <Pencil />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className={cn(
+                        'size-9',
+                        isDarkText
+                          ? 'text-black hover:bg-black/10'
+                          : 'text-white hover:bg-white/15',
+                      )}
+                      aria-label={`Export ${deck.name}`}
+                      disabled={exportingId === deck.id}
+                      onClick={() => void handleExport(deck.id)}
+                    >
+                      <Download />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className={cn(
+                        'size-9',
+                        isDarkText
+                          ? 'text-black hover:bg-black/10'
+                          : 'text-white hover:bg-white/15',
+                      )}
+                      asChild
+                    >
+                      <Link to={`/decks/${deck.id}/study`} aria-label={`Study ${deck.name}`}>
+                        <BookOpen />
+                      </Link>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className={cn(
+                        'size-9',
+                        isDarkText
+                          ? 'text-black hover:bg-black/10'
+                          : 'text-white hover:bg-white/15',
+                      )}
+                      aria-label={`Delete ${deck.name}`}
+                      onClick={() => handleDelete(deck.id, deck.name)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </article>
+              </li>
+            )
+          })}
         </ul>
       )}
 

@@ -1,6 +1,5 @@
 import { useDeferredValue, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { BookOpen, FolderPlus, Plus, Search } from 'lucide-react'
+import { FolderPlus, Plus, Search } from 'lucide-react'
 import {
   addCard,
   createDeck,
@@ -14,6 +13,9 @@ import {
 } from '@/db'
 import { useInfiniteCards } from '@/hooks/useInfiniteCards'
 import { CardList } from '@/components/CardList'
+import { WelcomeBanner } from '@/components/WelcomeBanner'
+import { DailyProgress } from '@/components/DailyProgress'
+import { StatsDashboard } from '@/components/StatsDashboard'
 import {
   CardFormDialog,
   fileToBlob,
@@ -36,7 +38,6 @@ import {
 const ALL_DECKS_VALUE = 'all'
 
 export function AllCardsView() {
-  const navigate = useNavigate()
   const { decks } = useDb()
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
@@ -117,6 +118,7 @@ export function AllCardsView() {
       name: deckData.name,
       description: deckData.description,
       image: deckData.image,
+      color: deckData.color,
     })
     setStatus(`Deck “${deckData.name}” created.`)
   }
@@ -147,15 +149,57 @@ export function AllCardsView() {
   }
 
   return (
-    <section className="space-y-4">
-      <header className="space-y-1">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="m-0 text-3xl tracking-tight">All Cards</h1>
-            <p className="m-0 text-sm text-muted-foreground">
-              Browse, filter, and manage every card in your library.
-            </p>
+    <section className="flex flex-col gap-8">
+      <WelcomeBanner />
+      <DailyProgress onAddCards={openCreate} />
+      <StatsDashboard />
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="w-full sm:w-44">
+            <Select
+              value={state}
+              onValueChange={(value) => setState(value as CardStateFilter)}
+            >
+              <SelectTrigger aria-label="Card state">
+                <SelectValue placeholder="Card state" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All states</SelectItem>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="learning">Learning</SelectItem>
+                <SelectItem value="review">Review</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          <div className="w-full sm:w-48">
+            <Select value={deckFilter} onValueChange={setDeckFilter}>
+              <SelectTrigger aria-label="Deck">
+                <SelectValue placeholder="All Decks" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_DECKS_VALUE}>All Decks</SelectItem>
+                {decks.map((deck) => (
+                  <SelectItem key={deck.id} value={deck.id}>
+                    {deck.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search front, back, romaji, example…"
+              className="pl-9"
+              aria-label="Search cards"
+            />
+          </div>
+
           <div className="flex shrink-0 gap-2">
             <Button
               type="button"
@@ -172,83 +216,22 @@ export function AllCardsView() {
             </Button>
           </div>
         </div>
-      </header>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="w-full sm:w-44">
-          <Select
-            value={state}
-            onValueChange={(value) => setState(value as CardStateFilter)}
-          >
-            <SelectTrigger aria-label="Card state">
-              <SelectValue placeholder="Card state" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All states</SelectItem>
-              <SelectItem value="new">New</SelectItem>
-              <SelectItem value="learning">Learning</SelectItem>
-              <SelectItem value="review">Review</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {status ? <p className="text-sm text-foreground">{status}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-        <div className="w-full sm:w-48">
-          <Select value={deckFilter} onValueChange={setDeckFilter}>
-            <SelectTrigger aria-label="Deck">
-              <SelectValue placeholder="All Decks" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_DECKS_VALUE}>All Decks</SelectItem>
-              {decks.map((deck) => (
-                <SelectItem key={deck.id} value={deck.id}>
-                  {deck.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Button
-          type="button"
-          className="shrink-0"
-          onClick={() => {
-            if (selectedDeckId) {
-              navigate(`/study?deckId=${encodeURIComponent(selectedDeckId)}`)
-              return
-            }
-            navigate('/study')
-          }}
-        >
-          <BookOpen />
-          Study
-        </Button>
-
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search front, back, romaji, example…"
-            className="pl-9"
-            aria-label="Search cards"
-          />
-        </div>
+        <CardList
+          items={items}
+          decks={decks}
+          hasMore={hasMore}
+          loading={loading}
+          onLoadMore={() => void loadMore()}
+          onEdit={openEdit}
+          onReset={(card) => void handleReset(card)}
+          onDelete={(card) => void handleDelete(card)}
+          onAssigned={(card, deck) => void handleAssigned(card, deck)}
+        />
       </div>
-
-      {status ? <p className="text-sm text-foreground">{status}</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-      <CardList
-        items={items}
-        decks={decks}
-        hasMore={hasMore}
-        loading={loading}
-        onLoadMore={() => void loadMore()}
-        onEdit={openEdit}
-        onReset={(card) => void handleReset(card)}
-        onDelete={(card) => void handleDelete(card)}
-        onAssigned={(card, deck) => void handleAssigned(card, deck)}
-      />
 
       <CardFormDialog
         open={formOpen}

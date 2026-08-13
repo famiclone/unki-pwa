@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, type Deck } from '../db'
 import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
 import type { Grade } from '../lib/srs'
 import { Flashcard } from '@/components/Flashcard'
@@ -46,6 +46,7 @@ function StudyFlashcard({
   onRate,
   rating,
   meta,
+  deckColor,
 }: {
   item: StudyItem
   revealed: boolean
@@ -53,6 +54,7 @@ function StudyFlashcard({
   onRate: (grade: Grade) => void
   rating: boolean
   meta: string
+  deckColor?: string
 }) {
   return (
     <div className="study-flashcard-stack">
@@ -60,6 +62,7 @@ function StudyFlashcard({
         card={item.card}
         revealed={revealed}
         meta={meta}
+        deckColor={deckColor}
         onFlip={onReveal}
       />
 
@@ -82,6 +85,12 @@ export function StudyView() {
     if (!deckId) return null
     return (await db.decks.get(deckId)) ?? null
   }, [deckId])
+  const decks = useLiveQuery(() => db.decks.toArray(), [])
+  const deckById = useMemo(() => {
+    const map = new Map<string, Deck>()
+    for (const item of decks ?? []) map.set(item.id, item)
+    return map
+  }, [decks])
 
   const [queue, setQueue] = useState<StudyItem[]>([])
   const [revealed, setRevealed] = useState(false)
@@ -150,6 +159,11 @@ export function StudyView() {
   const cardMeta = current
     ? `${backLabel} / ${String(doneCount + 1).padStart(3, '0')}`
     : ''
+  const currentDeckColor =
+    deck?.color ??
+    (current?.card.deckId
+      ? deckById.get(current.card.deckId)?.color
+      : undefined)
 
   return (
     <section className="study-view">
@@ -197,6 +211,7 @@ export function StudyView() {
           onRate={handleRate}
           rating={rating}
           meta={cardMeta}
+          deckColor={currentDeckColor}
         />
       )}
     </section>

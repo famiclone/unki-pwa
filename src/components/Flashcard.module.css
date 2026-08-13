@@ -33,17 +33,19 @@
   transform: rotateY(0deg);
   transition:
     transform 0.3s,
-    background-color 0.15s;
+    background-color 0.15s,
+    color 0.15s;
   transform-style: preserve-3d;
-  background-color: var(--card-bg);
+  background-color: var(--flash-bg, var(--card-bg));
+  color: var(--flash-fg, var(--fg-color));
   cursor: pointer;
   box-sizing: border-box;
 }
 
 .side0 {
   animation: flipOpacity 1s;
-  background-color: var(--unki-primary);
-  color: white;
+  background-color: var(--flash-bg, var(--unki-primary));
+  color: var(--flash-fg, white);
   font-size: 1.4rem;
   font-weight: bold;
   overflow: hidden;
@@ -55,8 +57,8 @@
   transform: rotateY(180deg);
   font-size: 1rem;
   font-weight: normal;
-  background-color: var(--card-bg);
-  color: var(--fg-color);
+  background-color: var(--flash-bg, var(--card-bg));
+  color: var(--flash-fg, var(--fg-color));
 }
 
 .face {

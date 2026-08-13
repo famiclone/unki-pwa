@@ -3,6 +3,7 @@ import { saveAs } from 'file-saver'
 import { createInitialSrsStats, srsStatsToReview } from '../lib/srs'
 import { db, type Card, type Deck, type DailyLog, type Stats } from './db'
 import { getGlobalStats, putGlobalStats } from '@/hooks/useStreak'
+import { DEFAULT_DECK_COLOR, normalizeHexColor } from '@/lib/colorUtils'
 
 export const DECK_EXPORT_VERSION = 2 as const
 
@@ -33,6 +34,8 @@ export type ExportedDeckJson = {
     name: string
     createdAt: number
     description?: string
+    /** Accent color as a hex code. */
+    color?: string
     /** Relative path inside the zip (e.g. images/deck.webp). */
     image?: string
   }
@@ -95,6 +98,7 @@ type ZipDeckMeta = {
   name: string
   createdAt: number
   description?: string
+  color?: string
   image?: Blob
 }
 
@@ -143,6 +147,7 @@ async function buildCardsZip(
       name: deckMeta.name,
       createdAt: deckMeta.createdAt,
       ...(deckMeta.description ? { description: deckMeta.description } : {}),
+      color: normalizeHexColor(deckMeta.color),
       ...(deckImagePath ? { image: deckImagePath } : {}),
     },
     cards: exportedCards,
@@ -184,6 +189,7 @@ export async function exportDeck(deckId: string): Promise<void> {
       name: deck.name,
       createdAt: deck.createdAt,
       ...(deck.description ? { description: deck.description } : {}),
+      color: deck.color,
       ...(deck.image ? { image: deck.image } : {}),
     },
     true,
@@ -306,10 +312,14 @@ export async function importDeck(file: File): Promise<Deck> {
   const importedDescription =
     typeof raw.deck.description === 'string' ? raw.deck.description.trim() : ''
 
+  const importedColor =
+    typeof raw.deck.color === 'string' ? raw.deck.color : DEFAULT_DECK_COLOR
+
   const newDeck: Deck = {
     id: crypto.randomUUID(),
     name: raw.deck.name.trim() || 'Imported deck',
     createdAt: now,
+    color: normalizeHexColor(importedColor),
     ...(importedDescription ? { description: importedDescription } : {}),
     ...(deckImage ? { image: deckImage } : {}),
   }

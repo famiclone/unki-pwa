@@ -12,10 +12,18 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useObjectUrl } from '@/hooks/useObjectUrl'
 import type { Deck } from '@/db'
+import {
+  DEFAULT_DECK_COLOR,
+  DECK_COLOR_SWATCHES,
+  normalizeHexColor,
+} from '@/lib/colorUtils'
+import { cn } from '@/lib/utils'
 
 export type DeckFormData = {
   name: string
   description?: string
+  /** Accent color as a hex code. */
+  color: string
   /** New cover image, or `null` to clear an existing image. */
   image?: Blob | null
 }
@@ -41,6 +49,7 @@ export function DeckFormDialog({
   const isEditing = Boolean(deck)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [color, setColor] = useState(DEFAULT_DECK_COLOR)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [clearImage, setClearImage] = useState(false)
   const [fileKey, setFileKey] = useState(0)
@@ -54,6 +63,7 @@ export function DeckFormDialog({
     if (!isOpen) return
     setName(deck?.name ?? '')
     setDescription(deck?.description ?? '')
+    setColor(normalizeHexColor(deck?.color))
     setImageFile(null)
     setClearImage(false)
     setFileKey((key) => key + 1)
@@ -71,6 +81,7 @@ export function DeckFormDialog({
       const deckData: DeckFormData = {
         name: name.trim(),
         description: description.trim() || undefined,
+        color: normalizeHexColor(color),
       }
 
       if (imageFile) {
@@ -99,7 +110,7 @@ export function DeckFormDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit deck' : 'New deck'}</DialogTitle>
           <DialogDescription>
-            Name is required. Description and cover image are optional.
+            Name is required. Pick a color so the deck stands out in lists and study.
           </DialogDescription>
         </DialogHeader>
 
@@ -125,6 +136,42 @@ export function DeckFormDialog({
               placeholder="What this deck is for"
               rows={3}
             />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label>Color</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              {DECK_COLOR_SWATCHES.map((swatch) => {
+                const selected =
+                  normalizeHexColor(color).toLowerCase() ===
+                  swatch.value.toLowerCase()
+                return (
+                  <button
+                    key={swatch.value}
+                    type="button"
+                    title={swatch.name}
+                    aria-label={swatch.name}
+                    aria-pressed={selected}
+                    className={cn(
+                      'size-8 rounded-full border-2 transition-transform',
+                      selected
+                        ? 'scale-110 border-foreground'
+                        : 'border-transparent hover:scale-105',
+                    )}
+                    style={{ backgroundColor: swatch.value }}
+                    onClick={() => setColor(swatch.value)}
+                  />
+                )
+              })}
+              <input
+                id="deck-color"
+                type="color"
+                value={normalizeHexColor(color)}
+                aria-label="Custom deck color"
+                className="size-8 cursor-pointer rounded-full border border-input bg-transparent p-0"
+                onChange={(e) => setColor(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="grid gap-1.5">
