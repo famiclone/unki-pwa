@@ -24,7 +24,6 @@ import { ChestEncounter } from '@/components/ChestEncounter'
 import { Flashcard } from '@/components/Flashcard'
 import { HeartsDisplay } from '@/components/HeartsDisplay'
 import { ItemIcon } from '@/components/ItemIcon'
-import { LootReveal } from '@/components/LootReveal'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -542,7 +541,7 @@ export function StudyView() {
             : finished
               ? 'Nothing due right now.'
               : sessionState === 'CHEST'
-                ? 'A chest appeared. Swipe up to open it.'
+                ? 'A chest appeared.'
                 : sessionState === 'LOOT' && currentLoot?.type === 'trap'
                   ? 'The chest was a mimic. You take the hit.'
                   : sessionState === 'LOOT'
@@ -560,12 +559,13 @@ export function StudyView() {
       </header>
 
       <div className="study-card-stage">
-        {sessionState === 'CHEST' ? (
-          <ChestEncounter onOpen={openChest} />
-        ) : sessionState === 'LOOT' && currentLoot ? (
-          <LootReveal
+        {currentLoot &&
+        (sessionState === 'CHEST' || sessionState === 'LOOT') ? (
+          <ChestEncounter
             item={currentLoot}
+            revealed={sessionState === 'LOOT'}
             busy={claiming}
+            onOpen={openChest}
             onUseNow={() => void handleUseLoot()}
             onAddToInventory={() => void handleStashLoot()}
             onContinue={returnToCards}
