@@ -434,7 +434,7 @@ export function StudyView() {
             )}
             <div className="study-actions">
               <Link to="/cards" className="back-link">
-                Return to Dashboard
+                Return to Home
               </Link>
             </div>
           </div>

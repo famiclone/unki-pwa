@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
+  Backpack,
   BookOpen,
-  LayoutDashboard,
   Library,
   Settings,
   SquareStack,
@@ -23,10 +23,11 @@ const sideItems = [
     isActive: (pathname: string) => pathname.startsWith('/cards'),
   },
   {
-    to: '/dashboard',
-    label: 'Dashboard',
-    icon: LayoutDashboard,
-    isActive: (pathname: string) => pathname.startsWith('/dashboard'),
+    to: '/hero',
+    label: 'Hero',
+    icon: Backpack,
+    isActive: (pathname: string) =>
+      pathname.startsWith('/hero') || pathname.startsWith('/dashboard'),
   },
   {
     to: '/settings',

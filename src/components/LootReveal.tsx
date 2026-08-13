@@ -1,13 +1,7 @@
-import { Heart, ScrollText, Skull } from 'lucide-react'
-import type { Item, ItemType } from '@/lib/items'
+import type { Item } from '@/lib/items'
 import { Button } from '@/components/ui/button'
+import { ItemIcon } from '@/components/ItemIcon'
 import { cn } from '@/lib/utils'
-
-const TYPE_ICON: Record<ItemType, typeof Heart> = {
-  consumable: Heart,
-  scroll: ScrollText,
-  trap: Skull,
-}
 
 type LootRevealProps = {
   item: Item
@@ -24,7 +18,6 @@ export function LootReveal({
   onAddToInventory,
   onContinue,
 }: LootRevealProps) {
-  const Icon = TYPE_ICON[item.type]
   const isTrap = item.type === 'trap'
 
   return (
@@ -34,7 +27,7 @@ export function LootReveal({
           className={cn('loot-badge', `loot-badge-${item.type}`)}
           aria-hidden
         >
-          <Icon className={item.type === 'consumable' ? 'fill-current' : undefined} />
+          <ItemIcon type={item.type} />
         </div>
         <h2 className="loot-name">{item.name}</h2>
         <p className="loot-desc">{item.description}</p>

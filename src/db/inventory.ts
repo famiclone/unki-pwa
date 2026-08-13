@@ -98,6 +98,7 @@ export async function useInventoryItem(itemId: string): Promise<
     item: Item
     recovered: boolean
     becameExhausted: boolean
+    leveledUp: boolean
   }
 > {
   if (!isItemId(itemId)) throw new Error('Unknown item')
@@ -128,6 +129,7 @@ export async function useInventoryItem(itemId: string): Promise<
       item,
       recovered: existing.isExhausted && next.hearts > 0,
       becameExhausted: !existing.isExhausted && next.hearts <= 0,
+      leveledUp: next.level > existing.level,
     }
   })
 }

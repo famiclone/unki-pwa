@@ -10,7 +10,7 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend �
 - Short questions (≤ 100 characters) are spoken on flip via the Web Speech API
 - Home shows Learned / Learning / New counts, streak, Level / rank / XP, hearts, coins, and ATK
 - Reviews award XP (I know +5 + ATK; new card +10; Study again awards none and costs 1 heart) and coins (I know +3). 0 hearts = Exhausted (no ATK bonus) until you restore a heart with a Health Potion
-- Hearts sit at the top of Study and no longer heal from Good answers. Buy potions, scrolls, and traps from the home Bag and use them from inventory
+- Hearts sit at the top of Study and no longer heal from Good answers. Open the Hero tab for rank, EXP, hearts, ATK, coins, and the backpack grid — tap a slot to use an item
 - After I know, a 15% roll can pause the queue on a chest; swipe up to open it, then Use Now or Add to Inventory. Mimic traps hit immediately (−1.5 hearts) with a red flash — only Continue is offered
 
 ## Stack
