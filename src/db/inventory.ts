@@ -3,6 +3,7 @@ import { getGlobalStats, normalizeStats } from '@/hooks/useStreak'
 import {
   getItem,
   isItemId,
+  RANDOM_TRINKET_ID,
   type Item,
   type ItemActionResult,
   type ItemId,
@@ -10,22 +11,61 @@ import {
 
 export type InventoryStack = InventoryItem & { item: Item }
 
+function sellAction(value: number): Item['action'] {
+  return (stats) => ({
+    stats: { ...stats, coins: stats.coins + value },
+    heartsDelta: 0,
+    expDelta: 0,
+    message: `Sold for ${value} 🪙`,
+  })
+}
+
+function hydrateStack(row: InventoryItem): InventoryStack | null {
+  const item = getItem(row.itemId)
+  if (!item || row.quantity <= 0) return null
+  if (row.itemId === RANDOM_TRINKET_ID) {
+    const value = row.value ?? item.value
+    return {
+      ...row,
+      item: {
+        ...item,
+        name: row.name ?? item.name,
+        description: row.description ?? item.description,
+        value,
+        action: sellAction(value),
+      },
+    }
+  }
+  return { ...row, item }
+}
+
 export async function listInventory(): Promise<InventoryStack[]> {
   const rows = await db.inventory.toArray()
   return rows
-    .map((row) => {
-      const item = getItem(row.itemId)
-      if (!item || row.quantity <= 0) return null
-      return { ...row, item }
-    })
+    .map(hydrateStack)
     .filter((row): row is InventoryStack => row !== null)
 }
 
 export async function addInventoryItem(
   itemId: ItemId,
   quantity = 1,
+  instance?: { name?: string; description?: string; value?: number },
 ): Promise<InventoryItem> {
   const amount = Math.max(1, Math.floor(quantity))
+
+  if (itemId === RANDOM_TRINKET_ID) {
+    const row: InventoryItem = {
+      id: crypto.randomUUID(),
+      itemId,
+      quantity: 1,
+      name: instance?.name,
+      description: instance?.description,
+      value: instance?.value,
+    }
+    await db.inventory.add(row)
+    return row
+  }
+
   const existing = await db.inventory.where('itemId').equals(itemId).first()
   if (existing) {
     const next = { ...existing, quantity: existing.quantity + amount }
@@ -46,6 +86,7 @@ export async function buyItem(
 ): Promise<{ item: Item; stats: Stats; stack: InventoryItem }> {
   const item = getItem(itemId)
   if (!item) throw new Error('Unknown item')
+  if (item.type === 'trinket') throw new Error('Trinkets cannot be bought')
 
   const stats = await getGlobalStats()
   if (stats.coins < item.value) {
@@ -75,7 +116,9 @@ export async function applyItemEffect(
     leveledUp: boolean
   }
 > {
-  if (!isItemId(itemId)) throw new Error('Unknown item')
+  if (!isItemId(itemId) || itemId === RANDOM_TRINKET_ID) {
+    throw new Error('Unknown item')
+  }
   const item = getItem(itemId)
   if (!item) throw new Error('Unknown item')
 
@@ -98,7 +141,7 @@ export async function applyItemEffect(
   }
 }
 
-export async function useInventoryItem(itemId: string): Promise<
+export async function useInventoryItem(itemIdOrStackId: string): Promise<
   ItemActionResult & {
     item: Item
     recovered: boolean
@@ -106,19 +149,24 @@ export async function useInventoryItem(itemId: string): Promise<
     leveledUp: boolean
   }
 > {
-  if (!isItemId(itemId)) throw new Error('Unknown item')
-  const item = getItem(itemId)
-  if (!item) throw new Error('Unknown item')
-
   return db.transaction('rw', db.stats, db.inventory, async () => {
-    const stack = await db.inventory.where('itemId').equals(itemId).first()
+    const byPrimary = await db.inventory.get(itemIdOrStackId)
+    const stack =
+      byPrimary ??
+      (await db.inventory.where('itemId').equals(itemIdOrStackId).first())
     if (!stack || stack.quantity < 1) throw new Error('Item not in inventory')
+
+    const hydrated = hydrateStack(stack)
+    if (!hydrated) throw new Error('Unknown item')
+    const { item } = hydrated
+    if (!isItemId(item.id)) throw new Error('Unknown item')
 
     const existing = await getGlobalStats()
     const result = item.action(existing)
+    const persistCoins = item.type === 'trinket'
     const next = normalizeStats({
       ...result.stats,
-      coins: existing.coins,
+      coins: persistCoins ? result.stats.coins : existing.coins,
     })
     await db.stats.put(next)
 

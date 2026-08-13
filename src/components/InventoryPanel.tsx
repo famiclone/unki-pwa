@@ -3,7 +3,7 @@ import { Coins } from 'lucide-react'
 import { toast } from 'sonner'
 import { useInventory } from '@/hooks/useInventory'
 import { useStreak } from '@/hooks/useStreak'
-import { ITEM_LIST, type ItemId } from '@/lib/items'
+import { SHOP_ITEMS, type ItemId } from '@/lib/items'
 import { Button } from '@/components/ui/button'
 
 export function InventoryPanel() {
@@ -57,7 +57,7 @@ export function InventoryPanel() {
       </div>
 
       <ul className="m-0 grid list-none gap-2 p-0">
-        {ITEM_LIST.map((item) => {
+        {SHOP_ITEMS.map((item) => {
           const quantity = owned.get(item.id) ?? 0
           return (
             <li

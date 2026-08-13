@@ -56,7 +56,7 @@ export function LootActions({
         disabled={busy}
         onClick={onUseNow}
       >
-        Use Now
+        {item.type === 'trinket' ? `Sell for ${item.value} 🪙` : 'Use Now'}
       </Button>
       <Button
         type="button"

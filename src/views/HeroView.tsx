@@ -28,7 +28,7 @@ export function HeroView() {
     if (!selected || using) return
     setUsing(true)
     try {
-      const result = await useInventoryItem(selected.itemId)
+      const result = await useInventoryItem(selected.id)
       if (result.leveledUp) {
         toast.success(`🎉 Level Up! You are now Level ${result.stats.level}!`)
       }
@@ -158,6 +158,7 @@ export function HeroView() {
                         'text-red-400',
                       stack.item.type === 'scroll' && 'text-amber-300',
                       stack.item.type === 'trap' && 'text-red-500',
+                      stack.item.type === 'trinket' && 'text-violet-300',
                     )}
                   />
                   <span className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-zinc-950/90 text-[0.65rem] font-bold tabular-nums">
@@ -192,6 +193,8 @@ export function HeroView() {
                       'border-amber-500/35 bg-amber-500/10 text-amber-600',
                     selected.item.type === 'trap' &&
                       'border-red-700/40 bg-red-700/10 text-red-700',
+                    selected.item.type === 'trinket' &&
+                      'border-violet-500/35 bg-violet-500/10 text-violet-500',
                   )}
                 >
                   <ItemIcon
@@ -202,6 +205,11 @@ export function HeroView() {
                 </div>
                 <DialogTitle>{selected.item.name}</DialogTitle>
                 <DialogDescription>{selected.item.description}</DialogDescription>
+                {selected.item.type === 'trinket' ? (
+                  <p className="m-0 text-sm font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                    Merchant value · {selected.item.value} 🪙
+                  </p>
+                ) : null}
               </DialogHeader>
               <Button
                 type="button"
@@ -212,7 +220,9 @@ export function HeroView() {
               >
                 {selected.item.id === 'escape_rope'
                   ? 'Dungeon only'
-                  : 'Use Item'}
+                  : selected.item.type === 'trinket'
+                    ? `Sell for ${selected.item.value} 🪙`
+                    : 'Use Item'}
               </Button>
             </>
           ) : null}

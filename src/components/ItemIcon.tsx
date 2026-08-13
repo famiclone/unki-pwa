@@ -1,4 +1,4 @@
-import { Heart, Route, ScrollText, Skull, type LucideIcon } from 'lucide-react'
+import { Gem, Heart, Route, ScrollText, Skull, type LucideIcon } from 'lucide-react'
 import type { ItemId, ItemType } from '@/lib/items'
 import { cn } from '@/lib/utils'
 
@@ -6,6 +6,7 @@ const TYPE_ICON: Record<ItemType, LucideIcon> = {
   consumable: Heart,
   scroll: ScrollText,
   trap: Skull,
+  trinket: Gem,
 }
 
 const ITEM_ICON: Partial<Record<ItemId, LucideIcon>> = {
@@ -13,6 +14,7 @@ const ITEM_ICON: Partial<Record<ItemId, LucideIcon>> = {
   knowledge_scroll: ScrollText,
   mimic_trap: Skull,
   escape_rope: Route,
+  random_trinket: Gem,
 }
 
 export function ItemIcon({
