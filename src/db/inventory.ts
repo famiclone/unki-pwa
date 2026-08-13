@@ -81,6 +81,43 @@ export async function addInventoryItem(
   return row
 }
 
+export function getSellPrice(stack: InventoryStack): number {
+  if (stack.item.type === 'trinket') {
+    return Math.max(1, Math.floor(stack.item.value))
+  }
+  return Math.max(1, Math.floor(stack.item.value / 2))
+}
+
+export async function sellInventoryItem(stackId: string): Promise<{
+  item: Item
+  coinsGained: number
+  stats: Stats
+}> {
+  return db.transaction('rw', db.stats, db.inventory, async () => {
+    const row = await db.inventory.get(stackId)
+    if (!row || row.quantity < 1) throw new Error('Item not in inventory')
+
+    const hydrated = hydrateStack(row)
+    if (!hydrated) throw new Error('Unknown item')
+
+    const coinsGained = getSellPrice(hydrated)
+    const existing = await getGlobalStats()
+    const nextStats = normalizeStats({
+      ...existing,
+      coins: existing.coins + coinsGained,
+    })
+    await db.stats.put(nextStats)
+
+    if (row.quantity <= 1) {
+      await db.inventory.delete(row.id)
+    } else {
+      await db.inventory.put({ ...row, quantity: row.quantity - 1 })
+    }
+
+    return { item: hydrated.item, coinsGained, stats: nextStats }
+  })
+}
+
 export async function buyItem(
   itemId: ItemId,
 ): Promise<{ item: Item; stats: Stats; stack: InventoryItem }> {
@@ -90,7 +127,7 @@ export async function buyItem(
 
   const stats = await getGlobalStats()
   if (stats.coins < item.value) {
-    throw new Error('Not enough coins')
+    throw new Error('Not enough coins!')
   }
 
   return db.transaction('rw', db.stats, db.inventory, async () => {

@@ -4,6 +4,7 @@ import {
   House,
   Library,
   Settings,
+  Store,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -14,6 +15,12 @@ const sideItems = [
     icon: Library,
     isActive: (pathname: string) =>
       pathname === '/decks' || /^\/decks\/[^/]+$/.test(pathname),
+  },
+  {
+    to: '/shop',
+    label: 'Shop',
+    icon: Store,
+    isActive: (pathname: string) => pathname.startsWith('/shop'),
   },
   {
     to: '/hero',
@@ -33,16 +40,15 @@ const sideItems = [
 export function BottomNav() {
   const { pathname } = useLocation()
   const hubActive = pathname.startsWith('/cards') || pathname === '/'
-  const leftItems = sideItems.slice(0, 1)
-  const rightItems = sideItems.slice(1)
+  const leftItems = sideItems.slice(0, 2)
+  const rightItems = sideItems.slice(2)
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 border-x border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"
+      className="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 border-x border-t border-border bg-background bg-none pb-[env(safe-area-inset-bottom)]"
       aria-label="Main"
     >
       <div className="grid h-16 grid-cols-5">
-        <div aria-hidden />
         {leftItems.map((item) => (
           <SideNavItem
             key={item.to}

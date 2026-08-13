@@ -208,11 +208,8 @@ body {
   min-width: 320px;
   font-family: var(--font-sans);
   color: var(--fg-color);
-  /* Exact dotted grid from famiclone/unki src/main.css */
-  background:
-    linear-gradient(90deg, var(--bg-color) 21px, transparent 1%) center,
-    linear-gradient(var(--bg-color) 21px, transparent 1%) center,
-    var(--dot-color);
+  background-color: var(--bg-color);
+  background-image: radial-gradient(var(--dot-color) 0.8px, transparent 0.8px);
   background-size: var(--dot-space) var(--dot-space);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -222,6 +219,36 @@ body {
 
 #root {
   min-height: 100svh;
+}
+
+.app-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(
+      120% 70% at 50% -10%,
+      color-mix(in oklab, #c4a574 28%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      80% 50% at 100% 100%,
+      color-mix(in oklab, #8b5a2b 16%, transparent),
+      transparent 55%
+    );
+}
+
+.app-shell::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.35;
+  background-image: radial-gradient(
+    color-mix(in oklab, #8b5a2b 55%, transparent) 0.8px,
+    transparent 0.8px
+  );
+  background-size: 18px 18px;
 }
 
 h1,
