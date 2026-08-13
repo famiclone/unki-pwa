@@ -26,7 +26,10 @@ Database Schema (Dexie):
 Git Workflow & Agent Behavior Rules:
 1. Branching Strategy: DO NOT create new branches for individual features. Work exclusively in the current integration branch (e.g., `main` or a designated PR branch). Accumulate multiple features and fixes into a single Pull Request.
 2. Commits: Features and fixes MUST be differentiated by atomic commits. You MUST use the Conventional Commits specification (e.g., `feat: add streak chart`, `fix: offline sync bug`, `refactor: extract db hooks`).
-3. Versioning: The project uses Semantic Versioning (SemVer). Use `npm version <update_type>` to bump the version and automatically generate Git tags (vX.Y.Z).
+3. Versioning & Changelog: The project uses Semantic Versioning (SemVer). 
+   - Use `npm version <update_type>` (patch, minor, or major) to bump the version.
+   - The npm `version` lifecycle script will automatically generate/update `CHANGELOG.md` based on Conventional Commits and stage it.
+   - Do NOT manually write the CHANGELOG.md. Rely on the automated script.
 4. Pre-Push Documentation Protocol: Before executing ANY `git push` command, you MUST automatically complete the following sequence:
    - Analyze all new features and changes since the last push.
    - Update `README.md` to reflect current functionality, setup instructions, or architectural changes.
