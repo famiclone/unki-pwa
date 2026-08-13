@@ -63,7 +63,10 @@ function StudyFlashcard({
         revealed={revealed}
         meta={meta}
         deckColor={deckColor}
+        swipeEnabled={revealed && !rating}
         onFlip={onReveal}
+        onSwipeLeft={() => onRate(1)}
+        onSwipeRight={() => onRate(3)}
       />
 
       {revealed ? (
@@ -205,6 +208,7 @@ export function StudyView() {
         </div>
       ) : (
         <StudyFlashcard
+          key={`${current.card.id}-${doneCount}`}
           item={current}
           revealed={revealed}
           onReveal={() => setRevealed((value) => !value)}
