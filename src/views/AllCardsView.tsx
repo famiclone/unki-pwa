@@ -17,7 +17,6 @@ import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { DailyProgress } from '@/components/DailyProgress'
 import {
   CardFormDialog,
-  fileToBlob,
   type CardFormValues,
 } from '@/components/CardFormDialog'
 import {
@@ -76,32 +75,22 @@ export function AllCardsView() {
     setStatus(null)
     try {
       if (formMode === 'create') {
-        const image = values.imageFile
-          ? await fileToBlob(values.imageFile)
-          : undefined
         await addCard({
           deckId: selectedDeckId ?? undefined,
           front: values.front,
           back: values.back,
           romaji: values.romaji,
           example: values.example,
-          image,
         })
         setStatus('Card added.')
         setListOpen(true)
       } else if (editingCard) {
-        let image: Blob | File | null | undefined
-        if (values.clearImage) image = null
-        else if (values.imageFile) image = await fileToBlob(values.imageFile)
-        else image = undefined
-
         await updateCard({
           id: editingCard.id,
           front: values.front,
           back: values.back,
           romaji: values.romaji,
           example: values.example,
-          image,
         })
         setStatus('Card updated.')
       }

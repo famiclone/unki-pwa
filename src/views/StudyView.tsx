@@ -520,12 +520,7 @@ export function StudyView() {
       : undefined)
 
   return (
-    <section
-      className={cn(
-        'study-view relative',
-        shaking && 'animate-shake',
-      )}
-    >
+    <section className="study-view relative">
       {finished || safelyEscaped ? null : (
         <div className="dungeon-dock">
           <button
@@ -547,6 +542,7 @@ export function StudyView() {
         </div>
       )}
 
+      <div className={cn(shaking && 'animate-shake')}>
       <header className="view-header">
         <h1>
           {safelyEscaped
@@ -669,6 +665,7 @@ export function StudyView() {
         </div>
       </div>
       {damageFlash ? <div className="loot-damage-flash" aria-hidden /> : null}
+      </div>
       {showIntro && !finished ? (
         <div className="dungeon-intro" aria-live="polite">
           <p className="dungeon-intro-kicker">Entering the</p>
@@ -689,20 +686,20 @@ export function StudyView() {
               No usable items. Loot a Health Potion or Escape Rope first.
             </p>
           ) : (
-            <ul className="m-0 grid list-none gap-2 p-0">
+            <ul className="m-0 grid w-full min-w-0 list-none gap-2 p-0">
               {(runBag ?? []).map((stack) => (
                 <li
                   key={stack.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+                  className="flex min-w-0 items-center gap-2 rounded-lg border border-border px-3 py-2"
                 >
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
                     <ItemIcon
                       type={stack.item.type}
                       itemId={stack.item.id}
-                      className="size-5"
+                      className="size-5 shrink-0"
                     />
-                    <div className="min-w-0">
-                      <p className="m-0 text-sm font-semibold">
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <p className="m-0 truncate text-sm font-semibold">
                         {stack.item.name}{' '}
                         <span className="text-xs font-medium text-muted-foreground">
                           ×{stack.quantity}
@@ -716,6 +713,7 @@ export function StudyView() {
                   <Button
                     type="button"
                     size="sm"
+                    className="shrink-0"
                     disabled={bagBusy}
                     onClick={() => void handleUseBagItem(stack.itemId)}
                   >
