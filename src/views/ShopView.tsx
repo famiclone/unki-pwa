@@ -1,9 +1,16 @@
 import { useMemo, useState } from 'react'
-import { Coins } from 'lucide-react'
+import { BedDouble, Coins } from 'lucide-react'
 import { toast } from 'sonner'
-import { buyItem, getSellPrice, sellInventoryItem } from '@/db/inventory'
+import {
+  buyItem,
+  getSellPrice,
+  INN_REST_PRICE,
+  restAtInn,
+  sellInventoryItem,
+} from '@/db/inventory'
 import { useHeroData } from '@/hooks/useHeroData'
 import { SHOP_ITEMS, type Item } from '@/lib/items'
+import { HeartsDisplay } from '@/components/HeartsDisplay'
 import { ItemIcon } from '@/components/ItemIcon'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -12,6 +19,9 @@ import { cn } from '@/lib/utils'
 export function ShopView() {
   const { stats, populatedInventory, loading } = useHeroData()
   const [busyId, setBusyId] = useState<string | null>(null)
+
+  const needsRest = stats.hearts < stats.maxHearts || stats.isExhausted
+  const canAffordInn = stats.coins >= INN_REST_PRICE
 
   const sellable = useMemo(() => {
     return [...populatedInventory].sort((a, b) => {
@@ -54,6 +64,29 @@ export function ShopView() {
     }
   }
 
+  async function handleRest() {
+    if (busyId) return
+    if (!needsRest) {
+      toast.message('You are already fully rested!')
+      return
+    }
+    if (!canAffordInn) {
+      toast.error('Not enough coins for a room!')
+      return
+    }
+    setBusyId('inn:rest')
+    try {
+      await restAtInn()
+      toast.success('A good night’s sleep restored your strength! ❤️')
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Not enough coins for a room!',
+      )
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const owned = new Map(
     populatedInventory.map((stack) => [stack.itemId, stack.quantity]),
   )
@@ -89,6 +122,7 @@ export function ShopView() {
         <TabsList aria-label="Shop">
           <TabsTrigger value="buy">Buy</TabsTrigger>
           <TabsTrigger value="sell">Sell</TabsTrigger>
+          <TabsTrigger value="inn">Inn</TabsTrigger>
         </TabsList>
 
         <TabsContent value="buy" className="space-y-2">
@@ -208,6 +242,55 @@ export function ShopView() {
               )
             })
           )}
+        </TabsContent>
+
+        <TabsContent value="inn">
+          <article className="space-y-4 rounded-xl border border-amber-700/20 bg-gradient-to-b from-amber-100/70 to-card/90 p-4 shadow-sm dark:border-amber-400/15 dark:from-amber-950/50 dark:to-card/80">
+            <div className="flex items-start gap-3">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-amber-600/30 bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                <BedDouble className="size-6" aria-hidden />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <h2 className="m-0 font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight">
+                  Rest at the Tavern
+                </h2>
+                <p className="m-0 text-sm text-muted-foreground">
+                  Rent a quiet room for the night. Your hearts refill and Exhausted
+                  clears.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border/70 bg-background/50 px-3 py-3">
+              <p className="m-0 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Your condition
+              </p>
+              <HeartsDisplay stats={stats} showMeta={false} />
+              <p className="m-0 text-sm text-foreground/90">
+                {loading
+                  ? 'Checking your rest…'
+                  : needsRest
+                    ? stats.isExhausted
+                      ? 'You’re Exhausted. A night’s rest will bring you back.'
+                      : `Missing ${Math.max(0, stats.maxHearts - stats.hearts)} heart${
+                          stats.maxHearts - stats.hearts === 1 ? '' : 's'
+                        }.`
+                    : 'You are already fully rested!'}
+              </p>
+              <p className="m-0 text-sm font-semibold tabular-nums text-amber-800 dark:text-amber-300">
+                Room · {INN_REST_PRICE} 🪙
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              className="h-12 w-full"
+              disabled={busyId !== null || loading}
+              onClick={() => void handleRest()}
+            >
+              Rent a Room (Restore All Hearts)
+            </Button>
+          </article>
         </TabsContent>
       </Tabs>
     </section>

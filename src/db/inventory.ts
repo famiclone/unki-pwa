@@ -88,6 +88,27 @@ export function getSellPrice(stack: InventoryStack): number {
   return Math.max(1, Math.floor(stack.item.value / 2))
 }
 
+/** Flat coin price to fully restore hearts at the Inn. */
+export const INN_REST_PRICE = 15
+
+export async function restAtInn(): Promise<Stats> {
+  const existing = await getGlobalStats()
+  if (existing.hearts >= existing.maxHearts && !existing.isExhausted) {
+    throw new Error('You are already fully rested!')
+  }
+  if (existing.coins < INN_REST_PRICE) {
+    throw new Error('Not enough coins for a room!')
+  }
+
+  const next = normalizeStats({
+    ...existing,
+    coins: existing.coins - INN_REST_PRICE,
+    hearts: existing.maxHearts,
+  })
+  await db.stats.put(next)
+  return next
+}
+
 export async function sellInventoryItem(stackId: string): Promise<{
   item: Item
   coinsGained: number
