@@ -63,7 +63,7 @@ export function ScrambleChallenge({
         axis="x"
         values={tiles}
         onReorder={setTiles}
-        className="m-0 flex min-h-14 list-none flex-wrap items-center justify-center gap-2 p-0"
+        className="m-0 flex list-none flex-wrap items-center justify-center gap-2 p-0"
         as="ul"
       >
         {tiles.map((tile) => (
@@ -72,8 +72,8 @@ export function ScrambleChallenge({
             value={tile}
             dragListener={!disabled}
             className={cn(
-              'flex min-w-10 cursor-grab list-none items-center justify-center rounded-lg border border-border bg-card px-3 py-3 text-lg font-semibold shadow-sm active:cursor-grabbing',
-              tile.char === ' ' && 'min-w-6 border-dashed text-muted-foreground',
+              'flex size-10 shrink-0 cursor-grab list-none items-center justify-center rounded-lg border border-border bg-card text-lg font-semibold shadow-sm active:cursor-grabbing',
+              tile.char === ' ' && 'border-dashed text-muted-foreground',
               disabled && 'pointer-events-none opacity-60',
             )}
           >

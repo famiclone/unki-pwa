@@ -140,6 +140,8 @@ export async function putGlobalStats(stats: Omit<Stats, 'id'> | Stats): Promise<
 export type AwardReviewOptions = {
   /** Bank EXP/coins for a dungeon run; still persist heart damage. */
   deferRewards?: boolean
+  /** Classic mode: no heart loss and no coin awards. */
+  skipCombat?: boolean
 }
 
 /** Apply review combat. EXP/coins persist unless `deferRewards` is set. */
@@ -156,7 +158,7 @@ export async function awardReviewExp(
     existing.attack,
     existing.isExhausted,
   )
-  const coinsGained = coinsForReview(grade)
+  const coinsGained = options.skipCombat ? 0 : coinsForReview(grade)
   const persistRewards = !options.deferRewards
   const totalExp = persistRewards ? existing.exp + expGained : existing.exp
   const { currentLevel } = calculateLevelStats(totalExp)
@@ -167,7 +169,7 @@ export async function awardReviewExp(
   let heartsLost = 0
   let damageShielded = false
 
-  if (grade === 1) {
+  if (grade === 1 && !options.skipCombat) {
     const damage = againDamage(existing.defense)
     heartsLost = damage
     damageShielded = existing.defense > 0

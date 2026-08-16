@@ -6,6 +6,7 @@ import {
   DeckFormDialog,
   type DeckFormData,
 } from '../components/DeckFormDialog'
+import { RunPrepModal } from '@/components/RunPrepModal'
 import { Button } from '@/components/ui/button'
 import { useDeckStats } from '@/hooks/useDeckStats'
 import {
@@ -20,6 +21,7 @@ export function DecksView() {
   const deckStats = useDeckStats()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null)
+  const [prepDeck, setPrepDeck] = useState<Deck | null>(null)
   const [importing, setImporting] = useState(false)
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
@@ -233,11 +235,10 @@ export function DecksView() {
                           ? 'text-black hover:bg-black/10'
                           : 'text-white hover:bg-white/15',
                       )}
-                      asChild
+                      aria-label={`Study ${deck.name}`}
+                      onClick={() => setPrepDeck(deck)}
                     >
-                      <Link to={`/decks/${deck.id}/study`} aria-label={`Study ${deck.name}`}>
-                        <BookOpen />
-                      </Link>
+                      <BookOpen />
                     </Button>
                     <Button
                       type="button"
@@ -270,6 +271,20 @@ export function DecksView() {
           setEditingDeck(null)
         }}
         onSave={handleSave}
+      />
+
+      <RunPrepModal
+        open={prepDeck !== null}
+        onOpenChange={(open) => {
+          if (!open) setPrepDeck(null)
+        }}
+        deckId={prepDeck?.id}
+        deckName={prepDeck?.name ?? 'Deck'}
+        dueCount={
+          prepDeck
+            ? (deckStats[prepDeck.id]?.dueToday ?? 0)
+            : 0
+        }
       />
     </section>
   )

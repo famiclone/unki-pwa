@@ -1,22 +1,30 @@
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { Plus, Sword } from 'lucide-react'
 import { useDailyProgress } from '@/hooks/useDailyProgress'
+import { useDeckStats } from '@/hooks/useDeckStats'
 import { CardStatBlocks } from '@/components/StatsDashboard'
+import { RunPrepModal } from '@/components/RunPrepModal'
 import { Button } from '@/components/ui/button'
 
 type DailyProgressProps = {
   onAddCards: () => void
   /** When set, Study opens that deck; otherwise the full queue. */
   deckId?: string | null
+  deckName?: string | null
 }
 
-export function DailyProgress({ onAddCards, deckId }: DailyProgressProps) {
-  const navigate = useNavigate()
+export function DailyProgress({
+  onAddCards,
+  deckId,
+  deckName,
+}: DailyProgressProps) {
   const { cardsToStudy, loading } = useDailyProgress()
+  const deckStats = useDeckStats()
+  const [prepOpen, setPrepOpen] = useState(false)
 
-  function startStudy() {
-    navigate(deckId ? `/study?deckId=${encodeURIComponent(deckId)}` : '/study')
-  }
+  const dueCount = deckId
+    ? (deckStats[deckId]?.dueToday ?? 0)
+    : cardsToStudy
 
   if (loading) {
     return (
@@ -60,11 +68,18 @@ export function DailyProgress({ onAddCards, deckId }: DailyProgressProps) {
       <Button
         type="button"
         className="h-16 w-full rounded-xl text-xl shadow-lg"
-        onClick={startStudy}
+        onClick={() => setPrepOpen(true)}
       >
         <Sword className="size-6" />
         Go
       </Button>
+      <RunPrepModal
+        open={prepOpen}
+        onOpenChange={setPrepOpen}
+        deckId={deckId}
+        deckName={deckName ?? (deckId ? 'Deck' : 'All cards')}
+        dueCount={dueCount}
+      />
     </section>
   )
 }

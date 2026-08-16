@@ -50,17 +50,19 @@ export function LootActions({
 
   return (
     <div className="loot-actions">
+      {item.type === 'trinket' ? null : (
+        <Button
+          type="button"
+          className="loot-btn"
+          disabled={busy}
+          onClick={onUseNow}
+        >
+          Use Now
+        </Button>
+      )}
       <Button
         type="button"
-        className="loot-btn"
-        disabled={busy}
-        onClick={onUseNow}
-      >
-        {item.type === 'trinket' ? `Sell for ${item.value} 🪙` : 'Use Now'}
-      </Button>
-      <Button
-        type="button"
-        variant="secondary"
+        variant={item.type === 'trinket' ? 'default' : 'secondary'}
         className="loot-btn"
         disabled={busy}
         onClick={onAddToInventory}

@@ -4,6 +4,8 @@ import { ArrowLeft, BookOpen, Download, Plus } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addCard, db, exportDeck, useDb } from '../db'
 import { useObjectUrl } from '../hooks/useObjectUrl'
+import { useDeckStats } from '@/hooks/useDeckStats'
+import { RunPrepModal } from '@/components/RunPrepModal'
 import type { Card } from '../db'
 import './DeckEditorView.css'
 import './DecksView.css'
@@ -36,6 +38,7 @@ export function DeckEditorView() {
   const { deckId = '' } = useParams<{ deckId: string }>()
   const { cards } = useDb(deckId)
   const deck = useLiveQuery(() => db.decks.get(deckId), [deckId])
+  const deckStats = useDeckStats()
 
   const [front, setFront] = useState('')
   const [romaji, setRomaji] = useState('')
@@ -45,6 +48,7 @@ export function DeckEditorView() {
   const [exporting, setExporting] = useState(false)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [status, setStatus] = useState<string | null>(null)
+  const [prepOpen, setPrepOpen] = useState(false)
 
   useEffect(() => {
     setFront('')
@@ -134,10 +138,14 @@ export function DeckEditorView() {
           {exporting ? 'Exporting…' : 'Export'}
         </button>
         {cards.length > 0 ? (
-          <Link to={`/decks/${deckId}/study`} className="study-cta">
+          <button
+            type="button"
+            className="study-cta"
+            onClick={() => setPrepOpen(true)}
+          >
             <BookOpen size={18} aria-hidden />
             Study deck
-          </Link>
+          </button>
         ) : null}
       </div>
 
@@ -202,6 +210,14 @@ export function DeckEditorView() {
           ))}
         </ul>
       )}
+
+      <RunPrepModal
+        open={prepOpen}
+        onOpenChange={setPrepOpen}
+        deckId={deckId}
+        deckName={deck.name}
+        dueCount={deckStats[deckId]?.dueToday ?? 0}
+      />
     </section>
   )
 }
