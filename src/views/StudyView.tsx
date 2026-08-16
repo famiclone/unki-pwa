@@ -21,10 +21,12 @@ import {
 import { generateDungeonName } from '@/lib/nameGenerator'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { ChallengeEngine } from '@/components/challenges/ChallengeEngine'
 import { ChestEncounter } from '@/components/ChestEncounter'
 import { Flashcard } from '@/components/Flashcard'
 import { HeartsDisplay } from '@/components/HeartsDisplay'
 import { ItemIcon } from '@/components/ItemIcon'
+import { SwipeCardShell } from '@/components/SwipeCardShell'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -54,7 +56,7 @@ import './StudyView.css'
 
 type RunRewards = { exp: number; coins: number }
 
-type SessionState = 'CARD' | 'CHEST' | 'LOOT'
+type SessionState = 'CARD' | 'CHALLENGE' | 'CHEST' | 'LOOT'
 
 type CombatFeedback = {
   id: number
@@ -71,32 +73,41 @@ const FEEDBACK_CLASS: Record<CombatFeedback['type'], string> = {
   loot: 'text-amber-400 font-bold text-xl drop-shadow-md animate-floatUp',
 }
 
-const STUDY_ACTIONS: Array<{ grade: Grade; label: string; className: string }> =
-  [
-    { grade: 1, label: 'Study again', className: 'grade-btn grade-again' },
-    { grade: 3, label: 'I know', className: 'grade-btn grade-know' },
-  ]
-
 function GradeButtons({
-  onRate,
+  onAgain,
+  onChallenge,
   rating,
+  canChallenge,
 }: {
-  onRate: (grade: Grade) => void
+  onAgain: () => void
+  onChallenge: () => void
   rating: boolean
+  canChallenge: boolean
 }) {
   return (
-    <div className="grade-row" role="group" aria-label="Rate recall">
-      {STUDY_ACTIONS.map(({ grade, label, className }) => (
+    <div
+      className={cn('grade-row', !canChallenge && 'grade-row-single')}
+      role="group"
+      aria-label="Rate recall"
+    >
+      <button
+        type="button"
+        className="grade-btn grade-again"
+        disabled={rating}
+        onClick={onAgain}
+      >
+        Study again
+      </button>
+      {canChallenge ? (
         <button
-          key={grade}
           type="button"
-          className={className}
+          className="grade-btn grade-know"
           disabled={rating}
-          onClick={() => onRate(grade)}
+          onClick={onChallenge}
         >
-          {label}
+          I know
         </button>
-      ))}
+      ) : null}
     </div>
   )
 }
@@ -105,7 +116,8 @@ function StudyFlashcard({
   item,
   revealed,
   onReveal,
-  onRate,
+  onAgain,
+  onChallenge,
   rating,
   meta,
   deckColor,
@@ -113,29 +125,49 @@ function StudyFlashcard({
   item: StudyItem
   revealed: boolean
   onReveal: () => void
-  onRate: (grade: Grade) => void
+  onAgain: () => void
+  onChallenge: () => void
   rating: boolean
   meta: string
   deckColor?: string
 }) {
+  const canChallenge = !revealed
+
   return (
     <div className="study-flashcard-stack touch-pan-y">
-      <Flashcard
-        card={item.card}
-        revealed={revealed}
-        meta={meta}
-        deckColor={deckColor}
-        swipeEnabled={revealed && !rating}
-        onFlip={onReveal}
-        onSwipeLeft={() => onRate(1)}
-        onSwipeRight={() => onRate(3)}
-      />
+      <SwipeCardShell
+        enabled={!rating}
+        allowChallenge={canChallenge}
+        onSwipeLeft={onAgain}
+        onSwipeRight={onChallenge}
+      >
+        <Flashcard
+          card={item.card}
+          revealed={revealed}
+          meta={meta}
+          deckColor={deckColor}
+          swipeEnabled={false}
+          onFlip={onReveal}
+        />
+      </SwipeCardShell>
 
-      {revealed ? (
-        <div className="study-flashcard-actions">
-          <GradeButtons onRate={onRate} rating={rating} />
-        </div>
-      ) : null}
+      <div className="study-flashcard-actions">
+        <GradeButtons
+          onAgain={onAgain}
+          onChallenge={onChallenge}
+          rating={rating}
+          canChallenge={canChallenge}
+        />
+        {revealed ? (
+          <p className="m-0 text-center text-xs text-muted-foreground">
+            Answer is showing — challenge is closed. Study again to continue.
+          </p>
+        ) : (
+          <p className="m-0 text-center text-xs text-muted-foreground">
+            Challenge before flipping. Peeking the answer locks I know.
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -428,6 +460,15 @@ export function StudyView() {
     }
   }
 
+  function startChallenge() {
+    if (!current || rating || revealed) return
+    setSessionState('CHALLENGE')
+  }
+
+  function handleChallengeComplete(isSuccess: boolean) {
+    void handleRateCard(isSuccess ? 3 : 1)
+  }
+
   function openChest() {
     if (sessionState !== 'CHEST' || !currentLoot) return
     const loot = currentLoot
@@ -561,6 +602,8 @@ export function StudyView() {
             ? 'Safely Escaped!'
             : dungeonVictory
               ? 'Dungeon Cleared!'
+            : sessionState === 'CHALLENGE'
+              ? 'Prove it!'
             : sessionState === 'LOOT' && currentLoot?.type === 'trap'
               ? 'It’s a trap!'
               : sessionState === 'CHEST' || sessionState === 'LOOT'
@@ -574,6 +617,8 @@ export function StudyView() {
             ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'} in the ${dungeonName}.`
             : finished
               ? 'Nothing due right now.'
+              : sessionState === 'CHALLENGE'
+                ? 'Pass the challenge without peeking at the answer.'
               : sessionState === 'CHEST'
                 ? 'A chest appeared.'
                 : sessionState === 'LOOT' && currentLoot?.type === 'trap'
@@ -644,13 +689,21 @@ export function StudyView() {
               )}
             </div>
           </div>
+        ) : current && sessionState === 'CHALLENGE' ? (
+          <ChallengeEngine
+            key={`challenge-${current.card.id}-${doneCount}`}
+            card={current.card}
+            busy={rating}
+            onComplete={handleChallengeComplete}
+          />
         ) : current ? (
           <StudyFlashcard
             key={`${current.card.id}-${doneCount}`}
             item={current}
             revealed={revealed}
             onReveal={() => setRevealed((value) => !value)}
-            onRate={handleRateCard}
+            onAgain={() => void handleRateCard(1)}
+            onChallenge={startChallenge}
             rating={rating}
             meta={cardMeta}
             deckColor={currentDeckColor}
