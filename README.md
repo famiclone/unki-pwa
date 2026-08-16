@@ -5,14 +5,14 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend �
 ## Study
 
 - Tap a card to flip (true 3D faces). The front uses the deck color; the back follows light/dark theme
-- While the question is showing, swipe **left** (Study again) or **right** (I know → challenge), or use the buttons — the challenge runs before you see the answer. Peeking the back locks I know. Pass the challenge to bank Good; fail it (or Study again) to take Again damage. Study again schedules a 5-minute relearn (12 hours if Exhausted) and leaves the session queue — the same card is not shown again until the next session
+- While the question is showing, swipe **left** (Study again) or **right** (I know), or use the buttons. I know banks Good immediately, or (for short answers ≤ 10 characters) may roll a level-scaled challenge first (5% + 1%/level, max 50%). Peeking the back locks I know. Pass the challenge to bank Good; fail it (or Study again) to take Again damage. Study again schedules a 5-minute relearn (12 hours if Exhausted) and leaves the session queue — the same card is not shown again until the next session
 - Ratings show RPG floating combat text (hearts / EXP); Study again also shakes the screen. Exhausted reviews show EXP without the ATK bonus
 - Short questions (≤ 100 characters) are spoken on flip via the Web Speech API
 - Hub (`/cards`, center nav) shows Learned / Learning / New counts, streak, Level / rank / XP, hearts, coins, and ATK. New cards use Front / Example (Front) / Back / Example (Back); the add/edit dialog no longer asks for an image
 - Study is a dungeon run with a generated name (e.g. Forgotten Sanctum). The bottom nav is hidden and there is no Back link. Flee (door icon) warns that banked EXP and coins will be lost. The in-run bag can use Health Potions or an Escape Rope (keeps the run bank and returns you to Hero). SRS due dates save immediately; rewards only persist on a clear or a safe rope escape
 - Reviews award XP (I know +5 + ATK; new card +10; Study again awards none and costs hearts mitigated by Defense — each DEF point cuts 10% damage, max 80%). 0 hearts = Exhausted (no ATK bonus) until you restore a heart with a Health Potion or the Inn
 - Hearts sit at the top of Study and no longer heal from Good answers. Open the Hero tab for rank, EXP, hearts, ATK, DEF, coins, and the backpack grid — tap a slot to use an item. The Shop tab buys potions, scrolls, and ropes, sells trinkets (full value) or leftover consumables (half price), and the Inn restores all hearts for 15 coins
-- After I know, a 15% roll can pause the queue on a chest; swipe up to flip it open. Most chests are a named trinket (sell now or stash); the rest are a potion or scroll.
+- After I know, a 15% roll can pause the queue on a chest; swipe up to flip it open. Most chests are a named trinket (stash and sell at the Shop); the rest are a potion or scroll.
 
 ## Stack
 

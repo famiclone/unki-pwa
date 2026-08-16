@@ -73,6 +73,16 @@ const FEEDBACK_CLASS: Record<CombatFeedback['type'], string> = {
   loot: 'text-amber-400 font-bold text-xl drop-shadow-md animate-floatUp',
 }
 
+/** Scramble UI stays stable only for short answers. */
+const CHALLENGE_MAX_BACK_LENGTH = 10
+
+/** Level-scaled chance to open a challenge before banking Good. Cap 50%. */
+function tryTriggerChallenge(cardBack: string, heroLevel: number): boolean {
+  if (cardBack.length > CHALLENGE_MAX_BACK_LENGTH) return false
+  const chance = Math.min(0.05 + heroLevel * 0.01, 0.5)
+  return Math.random() < chance
+}
+
 function GradeButtons({
   onAgain,
   onChallenge,
@@ -160,11 +170,11 @@ function StudyFlashcard({
         />
         {revealed ? (
           <p className="m-0 text-center text-xs text-muted-foreground">
-            Answer is showing — challenge is closed. Study again to continue.
+            Answer is showing — I know is locked. Study again to continue.
           </p>
         ) : (
           <p className="m-0 text-center text-xs text-muted-foreground">
-            Challenge before flipping. Peeking the answer locks I know.
+            I know may open a short challenge. Peeking locks I know.
           </p>
         )}
       </div>
@@ -396,59 +406,38 @@ export function StudyView() {
     void completeDungeonRun()
   }, [dungeonVictory])
 
-  async function handleRateCard(grade: Grade) {
+  async function handleCardSuccess() {
     if (!current || rating) return
 
     setRating(true)
     try {
       const wasNew = !current.review || current.review.state === 'new'
       const answeringExhausted = stats.isExhausted
-      const againHit = grade === 1 ? againDamage(stats.defense) : 0
-      const willExhaust =
-        answeringExhausted || (grade === 1 && stats.hearts - againHit <= 0)
-      await rateCard(current.card.id, grade, current.review, {
-        exhausted: willExhaust,
+      await rateCard(current.card.id, 3, current.review, {
+        exhausted: answeringExhausted,
       })
-      const award = await awardReviewExp(grade, wasNew, { deferRewards: true })
-      if (award.becameExhausted) {
-        toast.error('Exhausted — restore a heart with a Health Potion.')
-      }
+      const award = await awardReviewExp(3, wasNew, { deferRewards: true })
 
-      if (grade === 1) {
-        const lost = award.heartsLost
-        const label = Number.isInteger(lost)
-          ? `-${lost}`
-          : `-${lost.toFixed(1)}`
-        if (award.damageShielded) {
-          spawnFeedback(`${label} ❤️ (Shielded)`, 'shielded')
-        } else {
-          spawnFeedback(`${label} ❤️`, 'damage')
-        }
-        triggerShake()
-      } else if (grade === 3 || grade === 4) {
-        spawnFeedback(
-          answeringExhausted
-            ? `+${award.expGained} EXP (No ATK bonus)`
-            : `+${award.expGained} EXP`,
-          'exp',
-        )
-        if (award.coinsGained > 0) {
-          const loot = window.setTimeout(() => {
-            spawnFeedback(`+${award.coinsGained} 🪙`, 'loot')
-          }, 150)
-          timeoutsRef.current.push(loot)
-        }
-        bankRewards(award.expGained, award.coinsGained)
+      spawnFeedback(
+        answeringExhausted
+          ? `+${award.expGained} EXP (No ATK bonus)`
+          : `+${award.expGained} EXP`,
+        'exp',
+      )
+      if (award.coinsGained > 0) {
+        const loot = window.setTimeout(() => {
+          spawnFeedback(`+${award.coinsGained} 🪙`, 'loot')
+        }, 150)
+        timeoutsRef.current.push(loot)
       }
+      bankRewards(award.expGained, award.coinsGained)
 
       await recordStudyActivity()
       setDoneCount((n) => n + 1)
       setSessionQueue((prev) => prev.slice(1))
       setRevealed(false)
 
-      const foundChest =
-        (grade === 3 || grade === 4) && Math.random() < CHEST_DROP_CHANCE
-      if (foundChest) {
+      if (Math.random() < CHEST_DROP_CHANCE) {
         setCurrentLoot(pickChestLoot())
         setSessionState('CHEST')
       } else {
@@ -460,13 +449,65 @@ export function StudyView() {
     }
   }
 
-  function startChallenge() {
+  async function handleRateCard(grade: Grade) {
+    if (grade === 3 || grade === 4) {
+      await handleCardSuccess()
+      return
+    }
+    if (!current || rating) return
+
+    setRating(true)
+    try {
+      const wasNew = !current.review || current.review.state === 'new'
+      const answeringExhausted = stats.isExhausted
+      const againHit = againDamage(stats.defense)
+      const willExhaust =
+        answeringExhausted || stats.hearts - againHit <= 0
+      await rateCard(current.card.id, grade, current.review, {
+        exhausted: willExhaust,
+      })
+      const award = await awardReviewExp(grade, wasNew, { deferRewards: true })
+      if (award.becameExhausted) {
+        toast.error('Exhausted — restore a heart with a Health Potion.')
+      }
+
+      const lost = award.heartsLost
+      const label = Number.isInteger(lost)
+        ? `-${lost}`
+        : `-${lost.toFixed(1)}`
+      if (award.damageShielded) {
+        spawnFeedback(`${label} ❤️ (Shielded)`, 'shielded')
+      } else {
+        spawnFeedback(`${label} ❤️`, 'damage')
+      }
+      triggerShake()
+
+      await recordStudyActivity()
+      setDoneCount((n) => n + 1)
+      setSessionQueue((prev) => prev.slice(1))
+      setRevealed(false)
+      setCurrentLoot(null)
+      setSessionState('CARD')
+    } finally {
+      setRating(false)
+    }
+  }
+
+  function onKnow() {
     if (!current || rating || revealed) return
-    setSessionState('CHALLENGE')
+    if (tryTriggerChallenge(current.card.back, stats.level)) {
+      setSessionState('CHALLENGE')
+      return
+    }
+    void handleCardSuccess()
   }
 
   function handleChallengeComplete(isSuccess: boolean) {
-    void handleRateCard(isSuccess ? 3 : 1)
+    if (isSuccess) {
+      void handleCardSuccess()
+      return
+    }
+    void handleRateCard(1)
   }
 
   function openChest() {
@@ -495,18 +536,11 @@ export function StudyView() {
 
   async function handleUseLoot() {
     if (sessionState !== 'LOOT' || !currentLoot || claiming) return
-    if (currentLoot.type === 'trap') return
+    if (currentLoot.type === 'trap' || currentLoot.type === 'trinket') return
     setClaiming(true)
     try {
       if (currentLoot.id === 'escape_rope') {
         await finishSafeEscape()
-        return
-      }
-      if (currentLoot.type === 'trinket') {
-        bankRewards(0, currentLoot.value)
-        spawnFeedback(`+${currentLoot.value} 🪙`, 'loot')
-        toast.success(`Sold ${currentLoot.name}`)
-        returnToCards()
         return
       }
       const result = await applyItemEffect(currentLoot.id, { deferRewards: true })
@@ -624,7 +658,7 @@ export function StudyView() {
                 : sessionState === 'LOOT' && currentLoot?.type === 'trap'
                   ? 'The chest was a mimic. You take the hit.'
                   : sessionState === 'LOOT' && currentLoot?.type === 'trinket'
-                    ? 'Sell it now or stash it in your bag.'
+                    ? 'Stash it — sell later at the Shop.'
                     : sessionState === 'LOOT'
                       ? 'Use it now or stash it in your bag.'
                       : `${sessionQueue.length} remaining · ${doneCount} done`}
@@ -703,7 +737,7 @@ export function StudyView() {
             revealed={revealed}
             onReveal={() => setRevealed((value) => !value)}
             onAgain={() => void handleRateCard(1)}
-            onChallenge={startChallenge}
+            onChallenge={onKnow}
             rating={rating}
             meta={cardMeta}
             deckColor={currentDeckColor}
