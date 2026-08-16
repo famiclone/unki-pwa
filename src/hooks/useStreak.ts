@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, GLOBAL_STATS_ID, type DailyLog, type Stats } from '@/db/db'
 import {
-  AGAIN_HEART_LOSS,
+  againDamage,
   calculateLevelStats,
   coinsForReview,
   deriveCombatStats,
@@ -37,6 +37,7 @@ export function createDefaultStats(): Stats {
     hearts: maxHearts,
     maxHearts,
     attack,
+    defense: 0,
     isExhausted: false,
     coins: 0,
   }
@@ -58,6 +59,7 @@ export function normalizeStats(stats?: Partial<Stats> | null): Stats {
     level,
     maxHearts,
     attack,
+    defense: Math.max(0, Math.floor(stats?.defense ?? 0)),
     hearts,
     isExhausted: hearts <= 0,
     coins: Math.max(0, Math.floor(stats?.coins ?? 0)),
@@ -162,9 +164,14 @@ export async function awardReviewExp(
 
   let hearts = existing.hearts
   let becameExhausted = false
+  let heartsLost = 0
+  let damageShielded = false
 
   if (grade === 1) {
-    hearts = Math.max(0, snapHearts(hearts - AGAIN_HEART_LOSS))
+    const damage = againDamage(existing.defense)
+    heartsLost = damage
+    damageShielded = existing.defense > 0
+    hearts = Math.max(0, snapHearts(hearts - damage))
     if (hearts <= 0 && !existing.isExhausted) becameExhausted = true
   }
 
@@ -175,6 +182,7 @@ export async function awardReviewExp(
     hearts,
     maxHearts,
     attack,
+    defense: existing.defense,
     coins: persistRewards ? existing.coins + coinsGained : existing.coins,
   })
   await db.stats.put(next)
@@ -187,11 +195,14 @@ export async function awardReviewExp(
     hearts: next.hearts,
     maxHearts: next.maxHearts,
     attack: next.attack,
+    defense: next.defense,
     isExhausted: next.isExhausted,
     becameExhausted,
     recovered: existing.isExhausted && next.hearts > 0,
     coins: persistRewards ? next.coins : existing.coins + coinsGained,
     coinsGained,
+    heartsLost,
+    damageShielded,
   }
 }
 
@@ -225,11 +236,14 @@ export async function commitRunRewards(
     hearts: next.hearts,
     maxHearts: next.maxHearts,
     attack: next.attack,
+    defense: next.defense,
     isExhausted: next.isExhausted,
     becameExhausted: false,
     recovered: false,
     coins: next.coins,
     coinsGained,
+    heartsLost: 0,
+    damageShielded: false,
   }
 }
 

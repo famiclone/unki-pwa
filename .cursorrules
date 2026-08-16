@@ -21,7 +21,7 @@ Database Schema (Dexie):
 - Table 'cards': id (string), deckId (string, optional), front (string), romaji (string, optional), back (string), example (string, optional), image (Blob, optional), createdAt (number).
 - Table 'reviews': cardId (string), state (string: 'new' | 'learning' | 'review'), due (number - timestamp), stability (number), difficulty (number), reps (number).
 - Table 'dailyLog': id (string, unique as 'YYYY-MM-DD'), cardsReviewed (number), didStudy (boolean).
-- Table 'stats': id (string), currentStreak (number), lastStudyDate (string), exp (number), level (number), hearts (number), maxHearts (number), attack (number), isExhausted (boolean), coins (number - default 0).
+- Table 'stats': id (string), currentStreak (number), lastStudyDate (string), exp (number), level (number), hearts (number), maxHearts (number), attack (number), defense (number - default 0), isExhausted (boolean), coins (number - default 0).
 - Table 'inventory': id (string - UUID), itemId (string), quantity (number).
 
 Git Workflow & Agent Behavior Rules:

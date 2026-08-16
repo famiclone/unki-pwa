@@ -21,10 +21,12 @@ import {
 import { generateDungeonName } from '@/lib/nameGenerator'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { ChallengeEngine } from '@/components/challenges/ChallengeEngine'
 import { ChestEncounter } from '@/components/ChestEncounter'
 import { Flashcard } from '@/components/Flashcard'
 import { HeartsDisplay } from '@/components/HeartsDisplay'
 import { ItemIcon } from '@/components/ItemIcon'
+import { SwipeCardShell } from '@/components/SwipeCardShell'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -49,51 +51,63 @@ import {
   recordStudyActivity,
   useStreak,
 } from '@/hooks/useStreak'
+import { againDamage } from '@/lib/gamification'
 import './StudyView.css'
 
 type RunRewards = { exp: number; coins: number }
 
-type SessionState = 'CARD' | 'CHEST' | 'LOOT'
+type SessionState = 'CARD' | 'CHALLENGE' | 'CHEST' | 'LOOT'
 
 type CombatFeedback = {
   id: number
   text: string
-  type: 'damage' | 'heal' | 'exp' | 'loot'
+  type: 'damage' | 'shielded' | 'heal' | 'exp' | 'loot'
 }
 
 const FEEDBACK_CLASS: Record<CombatFeedback['type'], string> = {
   damage: 'text-red-500 font-bold text-2xl drop-shadow-md animate-floatUp',
+  shielded:
+    'text-sky-400 font-bold text-2xl drop-shadow-md animate-floatUp',
   heal: 'text-green-400 font-bold text-xl drop-shadow-md animate-floatUp',
   exp: 'text-yellow-400 font-bold text-xl drop-shadow-md animate-floatUp',
   loot: 'text-amber-400 font-bold text-xl drop-shadow-md animate-floatUp',
 }
 
-const STUDY_ACTIONS: Array<{ grade: Grade; label: string; className: string }> =
-  [
-    { grade: 1, label: 'Study again', className: 'grade-btn grade-again' },
-    { grade: 3, label: 'I know', className: 'grade-btn grade-know' },
-  ]
-
 function GradeButtons({
-  onRate,
+  onAgain,
+  onChallenge,
   rating,
+  canChallenge,
 }: {
-  onRate: (grade: Grade) => void
+  onAgain: () => void
+  onChallenge: () => void
   rating: boolean
+  canChallenge: boolean
 }) {
   return (
-    <div className="grade-row" role="group" aria-label="Rate recall">
-      {STUDY_ACTIONS.map(({ grade, label, className }) => (
+    <div
+      className={cn('grade-row', !canChallenge && 'grade-row-single')}
+      role="group"
+      aria-label="Rate recall"
+    >
+      <button
+        type="button"
+        className="grade-btn grade-again"
+        disabled={rating}
+        onClick={onAgain}
+      >
+        Study again
+      </button>
+      {canChallenge ? (
         <button
-          key={grade}
           type="button"
-          className={className}
+          className="grade-btn grade-know"
           disabled={rating}
-          onClick={() => onRate(grade)}
+          onClick={onChallenge}
         >
-          {label}
+          I know
         </button>
-      ))}
+      ) : null}
     </div>
   )
 }
@@ -102,7 +116,8 @@ function StudyFlashcard({
   item,
   revealed,
   onReveal,
-  onRate,
+  onAgain,
+  onChallenge,
   rating,
   meta,
   deckColor,
@@ -110,29 +125,49 @@ function StudyFlashcard({
   item: StudyItem
   revealed: boolean
   onReveal: () => void
-  onRate: (grade: Grade) => void
+  onAgain: () => void
+  onChallenge: () => void
   rating: boolean
   meta: string
   deckColor?: string
 }) {
+  const canChallenge = !revealed
+
   return (
     <div className="study-flashcard-stack touch-pan-y">
-      <Flashcard
-        card={item.card}
-        revealed={revealed}
-        meta={meta}
-        deckColor={deckColor}
-        swipeEnabled={revealed && !rating}
-        onFlip={onReveal}
-        onSwipeLeft={() => onRate(1)}
-        onSwipeRight={() => onRate(3)}
-      />
+      <SwipeCardShell
+        enabled={!rating}
+        allowChallenge={canChallenge}
+        onSwipeLeft={onAgain}
+        onSwipeRight={onChallenge}
+      >
+        <Flashcard
+          card={item.card}
+          revealed={revealed}
+          meta={meta}
+          deckColor={deckColor}
+          swipeEnabled={false}
+          onFlip={onReveal}
+        />
+      </SwipeCardShell>
 
-      {revealed ? (
-        <div className="study-flashcard-actions">
-          <GradeButtons onRate={onRate} rating={rating} />
-        </div>
-      ) : null}
+      <div className="study-flashcard-actions">
+        <GradeButtons
+          onAgain={onAgain}
+          onChallenge={onChallenge}
+          rating={rating}
+          canChallenge={canChallenge}
+        />
+        {revealed ? (
+          <p className="m-0 text-center text-xs text-muted-foreground">
+            Answer is showing — challenge is closed. Study again to continue.
+          </p>
+        ) : (
+          <p className="m-0 text-center text-xs text-muted-foreground">
+            Challenge before flipping. Peeking the answer locks I know.
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -368,8 +403,9 @@ export function StudyView() {
     try {
       const wasNew = !current.review || current.review.state === 'new'
       const answeringExhausted = stats.isExhausted
+      const againHit = grade === 1 ? againDamage(stats.defense) : 0
       const willExhaust =
-        answeringExhausted || (grade === 1 && stats.hearts <= 1)
+        answeringExhausted || (grade === 1 && stats.hearts - againHit <= 0)
       await rateCard(current.card.id, grade, current.review, {
         exhausted: willExhaust,
       })
@@ -379,7 +415,15 @@ export function StudyView() {
       }
 
       if (grade === 1) {
-        spawnFeedback('-1 ❤️', 'damage')
+        const lost = award.heartsLost
+        const label = Number.isInteger(lost)
+          ? `-${lost}`
+          : `-${lost.toFixed(1)}`
+        if (award.damageShielded) {
+          spawnFeedback(`${label} ❤️ (Shielded)`, 'shielded')
+        } else {
+          spawnFeedback(`${label} ❤️`, 'damage')
+        }
         triggerShake()
       } else if (grade === 3 || grade === 4) {
         spawnFeedback(
@@ -414,6 +458,15 @@ export function StudyView() {
     } finally {
       setRating(false)
     }
+  }
+
+  function startChallenge() {
+    if (!current || rating || revealed) return
+    setSessionState('CHALLENGE')
+  }
+
+  function handleChallengeComplete(isSuccess: boolean) {
+    void handleRateCard(isSuccess ? 3 : 1)
   }
 
   function openChest() {
@@ -520,12 +573,7 @@ export function StudyView() {
       : undefined)
 
   return (
-    <section
-      className={cn(
-        'study-view relative',
-        shaking && 'animate-shake',
-      )}
-    >
+    <section className="study-view relative">
       {finished || safelyEscaped ? null : (
         <div className="dungeon-dock">
           <button
@@ -547,12 +595,15 @@ export function StudyView() {
         </div>
       )}
 
+      <div className={cn(shaking && 'animate-shake')}>
       <header className="view-header">
         <h1>
           {safelyEscaped
             ? 'Safely Escaped!'
             : dungeonVictory
               ? 'Dungeon Cleared!'
+            : sessionState === 'CHALLENGE'
+              ? 'Prove it!'
             : sessionState === 'LOOT' && currentLoot?.type === 'trap'
               ? 'It’s a trap!'
               : sessionState === 'CHEST' || sessionState === 'LOOT'
@@ -566,6 +617,8 @@ export function StudyView() {
             ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'} in the ${dungeonName}.`
             : finished
               ? 'Nothing due right now.'
+              : sessionState === 'CHALLENGE'
+                ? 'Pass the challenge without peeking at the answer.'
               : sessionState === 'CHEST'
                 ? 'A chest appeared.'
                 : sessionState === 'LOOT' && currentLoot?.type === 'trap'
@@ -636,13 +689,21 @@ export function StudyView() {
               )}
             </div>
           </div>
+        ) : current && sessionState === 'CHALLENGE' ? (
+          <ChallengeEngine
+            key={`challenge-${current.card.id}-${doneCount}`}
+            card={current.card}
+            busy={rating}
+            onComplete={handleChallengeComplete}
+          />
         ) : current ? (
           <StudyFlashcard
             key={`${current.card.id}-${doneCount}`}
             item={current}
             revealed={revealed}
             onReveal={() => setRevealed((value) => !value)}
-            onRate={handleRateCard}
+            onAgain={() => void handleRateCard(1)}
+            onChallenge={startChallenge}
             rating={rating}
             meta={cardMeta}
             deckColor={currentDeckColor}
@@ -669,6 +730,7 @@ export function StudyView() {
         </div>
       </div>
       {damageFlash ? <div className="loot-damage-flash" aria-hidden /> : null}
+      </div>
       {showIntro && !finished ? (
         <div className="dungeon-intro" aria-live="polite">
           <p className="dungeon-intro-kicker">Entering the</p>
@@ -689,20 +751,20 @@ export function StudyView() {
               No usable items. Loot a Health Potion or Escape Rope first.
             </p>
           ) : (
-            <ul className="m-0 grid list-none gap-2 p-0">
+            <ul className="m-0 grid w-full min-w-0 list-none gap-2 p-0">
               {(runBag ?? []).map((stack) => (
                 <li
                   key={stack.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+                  className="flex min-w-0 items-center gap-2 rounded-lg border border-border px-3 py-2"
                 >
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
                     <ItemIcon
                       type={stack.item.type}
                       itemId={stack.item.id}
-                      className="size-5"
+                      className="size-5 shrink-0"
                     />
-                    <div className="min-w-0">
-                      <p className="m-0 text-sm font-semibold">
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <p className="m-0 truncate text-sm font-semibold">
                         {stack.item.name}{' '}
                         <span className="text-xs font-medium text-muted-foreground">
                           ×{stack.quantity}
@@ -716,6 +778,7 @@ export function StudyView() {
                   <Button
                     type="button"
                     size="sm"
+                    className="shrink-0"
                     disabled={bagBusy}
                     onClick={() => void handleUseBagItem(stack.itemId)}
                   >

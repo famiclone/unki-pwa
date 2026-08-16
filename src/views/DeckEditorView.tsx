@@ -157,7 +157,7 @@ export function DeckEditorView() {
           autoComplete="off"
         />
 
-        <label htmlFor="card-romaji">Romaji (optional)</label>
+        <label htmlFor="card-romaji">Example (Front)</label>
         <input
           id="card-romaji"
           type="text"

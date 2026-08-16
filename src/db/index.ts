@@ -17,6 +17,8 @@ export {
   buyItem,
   sellInventoryItem,
   getSellPrice,
+  restAtInn,
+  INN_REST_PRICE,
   useInventoryItem,
   type InventoryStack,
 } from './inventory'

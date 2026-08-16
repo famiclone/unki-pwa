@@ -16,8 +16,6 @@ export type CardFormValues = {
   romaji: string
   back: string
   example: string
-  imageFile: File | null
-  clearImage: boolean
 }
 
 type CardFormDialogProps = {
@@ -28,13 +26,6 @@ type CardFormDialogProps = {
   onOpenChange: (open: boolean) => void
   onSubmit: (values: CardFormValues) => Promise<void> | void
 }
-
-async function fileToBlob(file: File): Promise<Blob> {
-  const buffer = await file.arrayBuffer()
-  return new Blob([buffer], { type: file.type || 'application/octet-stream' })
-}
-
-export { fileToBlob }
 
 export function CardFormDialog({
   open,
@@ -48,9 +39,6 @@ export function CardFormDialog({
   const [romaji, setRomaji] = useState('')
   const [back, setBack] = useState('')
   const [example, setExample] = useState('')
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [clearImage, setClearImage] = useState(false)
-  const [fileKey, setFileKey] = useState(0)
 
   useEffect(() => {
     if (!open) return
@@ -58,9 +46,6 @@ export function CardFormDialog({
     setRomaji(card?.romaji ?? '')
     setBack(card?.back ?? '')
     setExample(card?.example ?? '')
-    setImageFile(null)
-    setClearImage(false)
-    setFileKey((k) => k + 1)
   }, [open, card])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -71,8 +56,6 @@ export function CardFormDialog({
       romaji,
       back,
       example,
-      imageFile,
-      clearImage,
     })
   }
 
@@ -82,7 +65,7 @@ export function CardFormDialog({
         <DialogHeader>
           <DialogTitle>{mode === 'create' ? 'Add card' : 'Edit card'}</DialogTitle>
           <DialogDescription>
-            Front is the vocabulary; back is the translation. Example sentence is
+            Front is the vocabulary; back is the translation. Examples are
             optional.
           </DialogDescription>
         </DialogHeader>
@@ -101,7 +84,7 @@ export function CardFormDialog({
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="card-romaji">Romaji (optional)</Label>
+            <Label htmlFor="card-romaji">Example (Front)</Label>
             <Input
               id="card-romaji"
               value={romaji}
@@ -124,7 +107,7 @@ export function CardFormDialog({
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="card-example">Example sentence (optional)</Label>
+            <Label htmlFor="card-example">Example (Back)</Label>
             <Input
               id="card-example"
               value={example}
@@ -132,33 +115,6 @@ export function CardFormDialog({
               placeholder="例文 / example sentence"
               autoComplete="off"
             />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor="card-image">Image (optional)</Label>
-            <Input
-              key={fileKey}
-              id="card-image"
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                setImageFile(e.target.files?.[0] ?? null)
-                setClearImage(false)
-              }}
-            />
-            {mode === 'edit' && card?.image && !clearImage ? (
-              <button
-                type="button"
-                className="justify-self-start text-left text-xs text-muted-foreground underline"
-                onClick={() => {
-                  setClearImage(true)
-                  setImageFile(null)
-                  setFileKey((k) => k + 1)
-                }}
-              >
-                Remove current image
-              </button>
-            ) : null}
           </div>
 
           <div className="mt-2 flex justify-end gap-2">

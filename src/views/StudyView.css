@@ -217,6 +217,10 @@
   gap: 0.5rem;
 }
 
+.grade-row-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .grade-btn {
   padding: 0.85rem 0.75rem;
   border: 1px solid var(--border);

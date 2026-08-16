@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Coins, Sword } from 'lucide-react'
+import { Coins, Shield, Sword } from 'lucide-react'
 import { toast } from 'sonner'
 import { useHeroData, type PopulatedInventoryItem } from '@/hooks/useHeroData'
 import { useInventoryItem } from '@/db/inventory'
@@ -97,7 +97,7 @@ export function HeroView() {
 
         <HeartsDisplay stats={stats} showMeta={false} />
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <div
             className={cn(
               'flex items-center gap-2 rounded-lg border border-border px-3 py-2',
@@ -110,6 +110,17 @@ export function HeroView() {
                 Attack
               </p>
               <p className="m-0 text-lg font-bold tabular-nums">{stats.attack}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
+            <Shield className="size-4 text-sky-600 dark:text-sky-400" aria-hidden />
+            <div>
+              <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-widest text-muted-foreground">
+                Defense
+              </p>
+              <p className="m-0 text-lg font-bold tabular-nums text-sky-700 dark:text-sky-300">
+                {stats.defense}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
