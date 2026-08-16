@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom'
 import { Backpack, PartyPopper, Undo2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -19,6 +25,13 @@ import {
   type Item,
 } from '@/lib/items'
 import { generateDungeonName } from '@/lib/nameGenerator'
+import {
+  parseSessionBatchSize,
+  parseStudyMode,
+  sessionBatchLimit,
+  type StudyLocationState,
+  type StudyMode,
+} from '@/lib/studyMode'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ChallengeEngine } from '@/components/challenges/ChallengeEngine'
@@ -127,29 +140,32 @@ function StudyFlashcard({
   revealed,
   onReveal,
   onAgain,
-  onChallenge,
+  onKnow,
   rating,
   meta,
   deckColor,
+  mode,
 }: {
   item: StudyItem
   revealed: boolean
   onReveal: () => void
   onAgain: () => void
-  onChallenge: () => void
+  onKnow: () => void
   rating: boolean
   meta: string
   deckColor?: string
+  mode: StudyMode
 }) {
-  const canChallenge = !revealed
+  const classic = mode === 'classic'
+  const canKnow = classic || !revealed
 
   return (
     <div className="study-flashcard-stack touch-pan-y">
       <SwipeCardShell
         enabled={!rating}
-        allowChallenge={canChallenge}
+        allowChallenge={canKnow}
         onSwipeLeft={onAgain}
-        onSwipeRight={onChallenge}
+        onSwipeRight={onKnow}
       >
         <Flashcard
           card={item.card}
@@ -164,11 +180,11 @@ function StudyFlashcard({
       <div className="study-flashcard-actions">
         <GradeButtons
           onAgain={onAgain}
-          onChallenge={onChallenge}
+          onChallenge={onKnow}
           rating={rating}
-          canChallenge={canChallenge}
+          canChallenge={canKnow}
         />
-        {revealed ? (
+        {classic ? null : revealed ? (
           <p className="m-0 text-center text-xs text-muted-foreground">
             Answer is showing — I know is locked. Study again to continue.
           </p>
@@ -184,11 +200,21 @@ function StudyFlashcard({
 
 export function StudyView() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { stats } = useStreak()
   const { deckId: deckIdFromPath } = useParams<{ deckId?: string }>()
   const [searchParams] = useSearchParams()
   const deckIdFromQuery = searchParams.get('deckId')
   const deckId = deckIdFromPath || deckIdFromQuery || undefined
+  const mode = parseStudyMode(
+    searchParams.get('mode'),
+    (location.state as StudyLocationState | null)?.mode,
+  )
+  const batchSize = parseSessionBatchSize(
+    searchParams.get('batch'),
+    (location.state as StudyLocationState | null)?.batchSize,
+  )
+  const classic = mode === 'classic'
 
   const deck = useLiveQuery(async () => {
     if (!deckId) return null
@@ -215,6 +241,7 @@ export function StudyView() {
   const [claiming, setClaiming] = useState(false)
   const [loading, setLoading] = useState(true)
   const [doneCount, setDoneCount] = useState(0)
+  const [moreDueRemaining, setMoreDueRemaining] = useState(false)
   const [runRewards, setRunRewards] = useState<RunRewards>({ exp: 0, coins: 0 })
   const [runCleared, setRunCleared] = useState(false)
   const [fleeOpen, setFleeOpen] = useState(false)
@@ -233,13 +260,21 @@ export function StudyView() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    void getStudyQueue(deckId)
+    const limit = sessionBatchLimit(batchSize)
+    const newCardCap =
+      limit === Number.POSITIVE_INFINITY ? undefined : Math.max(20, limit)
+    void getStudyQueue(deckId, newCardCap)
       .then((batch) => {
         if (cancelled) return
-        setSessionQueue(batch)
+        const sessionBatch =
+          limit === Number.POSITIVE_INFINITY
+            ? batch
+            : batch.slice(0, limit)
+        setSessionQueue(sessionBatch)
+        setMoreDueRemaining(batch.length > sessionBatch.length)
         setSessionState('CARD')
         setDungeonName(generateDungeonName())
-        setShowIntro(batch.length > 0)
+        setShowIntro(sessionBatch.length > 0 && mode !== 'classic')
         setCurrentLoot(null)
         setRevealed(false)
         setDoneCount(0)
@@ -257,7 +292,7 @@ export function StudyView() {
     return () => {
       cancelled = true
     }
-  }, [deckId])
+  }, [deckId, mode, batchSize])
 
   useEffect(() => {
     return () => {
@@ -333,6 +368,24 @@ export function StudyView() {
     setRunRewards({ exp: 0, coins: 0 })
     setFleeOpen(false)
     navigate('/hero')
+  }
+
+  async function leaveClassicSession() {
+    if (runCommitted.current) return
+    runCommitted.current = true
+    try {
+      const payout = runRewardsRef.current
+      if (payout.exp > 0 || payout.coins > 0) {
+        const result = await commitRunRewards(payout.exp, payout.coins)
+        if (result.leveledUp) {
+          toast.success(`🎉 Level Up! You are now Level ${result.newLevel}!`)
+        }
+      }
+      navigate('/hero')
+    } catch {
+      runCommitted.current = false
+      toast.error('Could not save session progress')
+    }
   }
 
   async function finishSafeEscape() {
@@ -416,7 +469,10 @@ export function StudyView() {
       await rateCard(current.card.id, 3, current.review, {
         exhausted: answeringExhausted,
       })
-      const award = await awardReviewExp(3, wasNew, { deferRewards: true })
+      const award = await awardReviewExp(3, wasNew, {
+        deferRewards: true,
+        skipCombat: classic,
+      })
 
       spawnFeedback(
         answeringExhausted
@@ -424,20 +480,20 @@ export function StudyView() {
           : `+${award.expGained} EXP`,
         'exp',
       )
-      if (award.coinsGained > 0) {
+      if (!classic && award.coinsGained > 0) {
         const loot = window.setTimeout(() => {
           spawnFeedback(`+${award.coinsGained} 🪙`, 'loot')
         }, 150)
         timeoutsRef.current.push(loot)
       }
-      bankRewards(award.expGained, award.coinsGained)
+      bankRewards(award.expGained, classic ? 0 : award.coinsGained)
 
       await recordStudyActivity()
       setDoneCount((n) => n + 1)
       setSessionQueue((prev) => prev.slice(1))
       setRevealed(false)
 
-      if (Math.random() < CHEST_DROP_CHANCE) {
+      if (!classic && Math.random() < CHEST_DROP_CHANCE) {
         setCurrentLoot(pickChestLoot())
         setSessionState('CHEST')
       } else {
@@ -460,27 +516,34 @@ export function StudyView() {
     try {
       const wasNew = !current.review || current.review.state === 'new'
       const answeringExhausted = stats.isExhausted
-      const againHit = againDamage(stats.defense)
+      const againHit = classic ? 0 : againDamage(stats.defense)
       const willExhaust =
-        answeringExhausted || stats.hearts - againHit <= 0
+        answeringExhausted || (!classic && stats.hearts - againHit <= 0)
       await rateCard(current.card.id, grade, current.review, {
         exhausted: willExhaust,
       })
-      const award = await awardReviewExp(grade, wasNew, { deferRewards: true })
+      const award = await awardReviewExp(grade, wasNew, {
+        deferRewards: true,
+        skipCombat: classic,
+      })
       if (award.becameExhausted) {
         toast.error('Exhausted — restore a heart with a Health Potion.')
       }
 
-      const lost = award.heartsLost
-      const label = Number.isInteger(lost)
-        ? `-${lost}`
-        : `-${lost.toFixed(1)}`
-      if (award.damageShielded) {
-        spawnFeedback(`${label} ❤️ (Shielded)`, 'shielded')
+      if (classic) {
+        spawnFeedback('Needs review', 'exp')
       } else {
-        spawnFeedback(`${label} ❤️`, 'damage')
+        const lost = award.heartsLost
+        const label = Number.isInteger(lost)
+          ? `-${lost}`
+          : `-${lost.toFixed(1)}`
+        if (award.damageShielded) {
+          spawnFeedback(`${label} ❤️ (Shielded)`, 'shielded')
+        } else {
+          spawnFeedback(`${label} ❤️`, 'damage')
+        }
+        triggerShake()
       }
-      triggerShake()
 
       await recordStudyActivity()
       setDoneCount((n) => n + 1)
@@ -494,8 +557,12 @@ export function StudyView() {
   }
 
   function onKnow() {
-    if (!current || rating || revealed) return
-    if (tryTriggerChallenge(current.card.back, stats.level)) {
+    if (!current || rating) return
+    if (!classic && revealed) return
+    if (
+      !classic &&
+      tryTriggerChallenge(current.card.back, stats.level)
+    ) {
       setSessionState('CHALLENGE')
       return
     }
@@ -613,19 +680,27 @@ export function StudyView() {
           <button
             type="button"
             className="dungeon-dock-run"
-            onClick={() => setFleeOpen(true)}
+            onClick={() => {
+              if (classic) {
+                void leaveClassicSession()
+                return
+              }
+              setFleeOpen(true)
+            }}
           >
             <Undo2 size={18} aria-hidden />
-            Run
+            {classic ? 'Leave' : 'Run'}
           </button>
-          <button
-            type="button"
-            className="dungeon-dock-bag"
-            onClick={() => setBagOpen(true)}
-          >
-            <Backpack size={18} aria-hidden />
-            Bag
-          </button>
+          {classic ? null : (
+            <button
+              type="button"
+              className="dungeon-dock-bag"
+              onClick={() => setBagOpen(true)}
+            >
+              <Backpack size={18} aria-hidden />
+              Bag
+            </button>
+          )}
         </div>
       )}
 
@@ -635,20 +710,26 @@ export function StudyView() {
           {safelyEscaped
             ? 'Safely Escaped!'
             : dungeonVictory
-              ? 'Dungeon Cleared!'
+              ? classic
+                ? 'Session Complete!'
+                : 'Dungeon Cleared!'
             : sessionState === 'CHALLENGE'
               ? 'Prove it!'
             : sessionState === 'LOOT' && currentLoot?.type === 'trap'
               ? 'It’s a trap!'
               : sessionState === 'CHEST' || sessionState === 'LOOT'
                 ? 'Treasure!'
-                : dungeonName}
+                : classic
+                  ? 'Classic Review'
+                  : dungeonName}
         </h1>
         <p>
           {safelyEscaped
             ? 'You kept the run loot and left the dungeon.'
             : dungeonVictory
-            ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'} in the ${dungeonName}.`
+            ? classic
+              ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'}.`
+              : `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'} in the ${dungeonName}.`
             : finished
               ? 'Nothing due right now.'
               : sessionState === 'CHALLENGE'
@@ -663,7 +744,7 @@ export function StudyView() {
                       ? 'Use it now or stash it in your bag.'
                       : `${sessionQueue.length} remaining · ${doneCount} done`}
         </p>
-        {finished || safelyEscaped ? null : (
+        {finished || safelyEscaped || classic ? null : (
           <div className="study-hp">
             <HeartsDisplay stats={stats} compact showMeta={false} />
             <p className="run-bank">
@@ -698,8 +779,15 @@ export function StudyView() {
                       : 'Banking run rewards…'}
                 </p>
                 <p className="session-exp">
-                  Earned: +{runRewards.exp} EXP, +{runRewards.coins} coins
+                  Earned: +{runRewards.exp} EXP
+                  {classic ? '' : `, +${runRewards.coins} coins`}
                 </p>
+                {moreDueRemaining ? (
+                  <p className="m-0 text-center text-sm text-muted-foreground">
+                    There are still more cards due. Take a rest at the Inn and
+                    come back!
+                  </p>
+                ) : null}
               </>
             ) : (
               <p className="empty-state">
@@ -723,7 +811,7 @@ export function StudyView() {
               )}
             </div>
           </div>
-        ) : current && sessionState === 'CHALLENGE' ? (
+        ) : current && sessionState === 'CHALLENGE' && !classic ? (
           <ChallengeEngine
             key={`challenge-${current.card.id}-${doneCount}`}
             card={current.card}
@@ -737,10 +825,11 @@ export function StudyView() {
             revealed={revealed}
             onReveal={() => setRevealed((value) => !value)}
             onAgain={() => void handleRateCard(1)}
-            onChallenge={onKnow}
+            onKnow={onKnow}
             rating={rating}
             meta={cardMeta}
             deckColor={currentDeckColor}
+            mode={mode}
           />
         ) : null}
         <div
@@ -825,21 +914,23 @@ export function StudyView() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={fleeOpen} onOpenChange={setFleeOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Flee the dungeon?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to flee? You will lose all EXP and Coins
-              accumulated in this run!
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Stay</AlertDialogCancel>
-            <AlertDialogAction onClick={fleeDungeon}>Flee</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {classic ? null : (
+        <AlertDialog open={fleeOpen} onOpenChange={setFleeOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Flee the dungeon?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to flee? You will lose all EXP and Coins
+                accumulated in this run!
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Stay</AlertDialogCancel>
+              <AlertDialogAction onClick={fleeDungeon}>Flee</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </section>
   )
 }

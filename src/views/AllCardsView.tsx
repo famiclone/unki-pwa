@@ -51,6 +51,10 @@ export function AllCardsView() {
   const [listOpen, setListOpen] = useState(false)
 
   const selectedDeckId = deckFilter === ALL_DECKS_VALUE ? null : deckFilter
+  const selectedDeckName =
+    selectedDeckId == null
+      ? 'All cards'
+      : (decks.find((deck) => deck.id === selectedDeckId)?.name ?? 'Deck')
 
   const { items, hasMore, loading, error, loadMore, refresh } = useInfiniteCards(
     deferredSearch,
@@ -142,7 +146,11 @@ export function AllCardsView() {
   return (
     <section className="flex flex-col gap-8">
       <WelcomeBanner />
-      <DailyProgress onAddCards={openCreate} deckId={selectedDeckId} />
+      <DailyProgress
+        onAddCards={openCreate}
+        deckId={selectedDeckId}
+        deckName={selectedDeckName}
+      />
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
