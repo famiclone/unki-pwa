@@ -65,6 +65,8 @@ export interface Stats {
   maxHearts: number
   /** Derived attack; added to EXP when not exhausted. */
   attack: number
+  /** Flat defense; each point reduces Again damage by 10% (capped at 80%). */
+  defense: number
   /** True when hearts reach 0; ATK bonus is disabled until a heart is restored. */
   isExhausted: boolean
   /** Spendable currency earned from reviews. */
@@ -276,3 +278,23 @@ db.version(11).stores({
   dailyLog: 'id, cardsReviewed, didStudy',
   inventory: 'id, itemId',
 })
+
+// Flat Defense on global stats (defaults to 0).
+db.version(12)
+  .stores({
+    decks: 'id, name, description, color, createdAt',
+    cards: 'id, deckId, front, romaji, back, example, createdAt',
+    reviews: 'cardId, state, due, stability, difficulty, reps',
+    stats:
+      'id, currentStreak, lastStudyDate, exp, level, hearts, maxHearts, attack, defense, isExhausted, coins',
+    dailyLog: 'id, cardsReviewed, didStudy',
+    inventory: 'id, itemId',
+  })
+  .upgrade(async (tx) => {
+    await tx
+      .table('stats')
+      .toCollection()
+      .modify((row: { defense?: number }) => {
+        if (typeof row.defense !== 'number') row.defense = 0
+      })
+  })

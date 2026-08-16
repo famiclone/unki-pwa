@@ -49,6 +49,7 @@ import {
   recordStudyActivity,
   useStreak,
 } from '@/hooks/useStreak'
+import { againDamage } from '@/lib/gamification'
 import './StudyView.css'
 
 type RunRewards = { exp: number; coins: number }
@@ -58,11 +59,13 @@ type SessionState = 'CARD' | 'CHEST' | 'LOOT'
 type CombatFeedback = {
   id: number
   text: string
-  type: 'damage' | 'heal' | 'exp' | 'loot'
+  type: 'damage' | 'shielded' | 'heal' | 'exp' | 'loot'
 }
 
 const FEEDBACK_CLASS: Record<CombatFeedback['type'], string> = {
   damage: 'text-red-500 font-bold text-2xl drop-shadow-md animate-floatUp',
+  shielded:
+    'text-sky-400 font-bold text-2xl drop-shadow-md animate-floatUp',
   heal: 'text-green-400 font-bold text-xl drop-shadow-md animate-floatUp',
   exp: 'text-yellow-400 font-bold text-xl drop-shadow-md animate-floatUp',
   loot: 'text-amber-400 font-bold text-xl drop-shadow-md animate-floatUp',
@@ -368,8 +371,9 @@ export function StudyView() {
     try {
       const wasNew = !current.review || current.review.state === 'new'
       const answeringExhausted = stats.isExhausted
+      const againHit = grade === 1 ? againDamage(stats.defense) : 0
       const willExhaust =
-        answeringExhausted || (grade === 1 && stats.hearts <= 1)
+        answeringExhausted || (grade === 1 && stats.hearts - againHit <= 0)
       await rateCard(current.card.id, grade, current.review, {
         exhausted: willExhaust,
       })
@@ -379,7 +383,15 @@ export function StudyView() {
       }
 
       if (grade === 1) {
-        spawnFeedback('-1 ❤️', 'damage')
+        const lost = award.heartsLost
+        const label = Number.isInteger(lost)
+          ? `-${lost}`
+          : `-${lost.toFixed(1)}`
+        if (award.damageShielded) {
+          spawnFeedback(`${label} ❤️ (Shielded)`, 'shielded')
+        } else {
+          spawnFeedback(`${label} ❤️`, 'damage')
+        }
         triggerShake()
       } else if (grade === 3 || grade === 4) {
         spawnFeedback(

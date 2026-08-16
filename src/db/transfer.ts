@@ -25,6 +25,7 @@ export type ExportedStats = {
   hearts?: number
   maxHearts?: number
   attack?: number
+  defense?: number
   isExhausted?: boolean
   coins?: number
 }
@@ -173,6 +174,7 @@ async function buildCardsZip(
       hearts: stats.hearts,
       maxHearts: stats.maxHearts,
       attack: stats.attack,
+      defense: stats.defense,
       isExhausted: stats.isExhausted,
       coins: stats.coins,
     }
@@ -250,6 +252,8 @@ function parseExportedStats(value: unknown): ExportedStats | null {
     lastStudyDate: data.lastStudyDate,
     ...(typeof data.exp === 'number' ? { exp: data.exp } : {}),
     ...(typeof data.level === 'number' ? { level: data.level } : {}),
+    ...(typeof data.attack === 'number' ? { attack: data.attack } : {}),
+    ...(typeof data.defense === 'number' ? { defense: data.defense } : {}),
     ...(typeof data.coins === 'number' ? { coins: data.coins } : {}),
   }
 }
@@ -263,6 +267,10 @@ async function mergeImportedStats(incoming: ExportedStats): Promise<void> {
     ...existing,
     exp: Math.max(existing.exp, Math.max(0, Math.floor(incoming.exp ?? 0))),
     coins: Math.max(existing.coins, Math.max(0, Math.floor(incoming.coins ?? 0))),
+    defense: Math.max(
+      existing.defense,
+      Math.max(0, Math.floor(incoming.defense ?? 0)),
+    ),
   }
 
   if (!existing.lastStudyDate && incoming.lastStudyDate) {

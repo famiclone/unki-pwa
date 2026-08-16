@@ -24,21 +24,38 @@ export type CombatResult = ExpAward & {
   hearts: number
   maxHearts: number
   attack: number
+  defense: number
   isExhausted: boolean
   becameExhausted: boolean
   recovered: boolean
   coins: number
   coinsGained: number
+  /** Hearts lost on Again (0 for other grades). */
+  heartsLost: number
+  /** True when Defense reduced Again damage below the base hit. */
+  damageShielded: boolean
 }
 
 export const BASE_HEARTS = 3
 export const HEART_PER_TEN_LEVELS = 10
-export const AGAIN_HEART_LOSS = 1
+/** Base heart loss when answering Again (before Defense). */
+export const AGAIN_BASE_DAMAGE = 1
+/** @deprecated Prefer againDamage(defense). */
+export const AGAIN_HEART_LOSS = AGAIN_BASE_DAMAGE
+export const DEFENSE_MITIGATION_PER_POINT = 0.1
+export const MAX_DAMAGE_MITIGATION = 0.8
 export const GOOD_COINS = 3
 export const HARD_COINS = 1
 
 export function snapHearts(value: number): number {
   return Math.round(value * 2) / 2
+}
+
+/** Again damage after Defense mitigation (min 20% of base). */
+export function againDamage(defense: number): number {
+  const points = Math.max(0, defense)
+  const mitigation = Math.min(points * DEFENSE_MITIGATION_PER_POINT, MAX_DAMAGE_MITIGATION)
+  return AGAIN_BASE_DAMAGE - mitigation
 }
 
 /** EXP required to leave `currentLevel` and reach the next one. */
