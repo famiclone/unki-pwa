@@ -51,7 +51,7 @@ export function SettingsView() {
         <li className="rounded-xl border border-border bg-card px-4 py-3">
           <div className="space-y-3">
             <div>
-              <p className="m-0 text-sm font-semibold">Dungeon Depth</p>
+              <p className="m-0 text-sm font-semibold">Session size</p>
               <p className="m-0 text-xs text-muted-foreground">
                 How many cards to review each session (10 / 20 / 40 / All).
               </p>
@@ -59,7 +59,7 @@ export function SettingsView() {
             <div
               className="grid grid-cols-4 gap-2"
               role="radiogroup"
-              aria-label="Dungeon depth"
+              aria-label="Session size"
             >
               {SESSION_BATCH_OPTIONS.map((size) => {
                 const selected = batchSize === size

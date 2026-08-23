@@ -59,7 +59,7 @@ export function SwipeCardShell({
           style={{ opacity: leftOpacity }}
           className="flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg"
         >
-          <Ban className="size-4" />
+          <Ban className="size-5" />
           Again
         </motion.div>
         {allowChallenge ? (
@@ -68,7 +68,7 @@ export function SwipeCardShell({
             className="flex items-center gap-1.5 rounded-full bg-emerald-600/90 px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg"
           >
             Challenge
-            <Check className="size-4" />
+            <Check className="size-5" />
           </motion.div>
         ) : null}
       </motion.div>

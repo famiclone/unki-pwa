@@ -1,12 +1,13 @@
-import { useDeferredValue, useState } from 'react'
-import { ChevronDown, FolderPlus, Plus, Search } from 'lucide-react'
+import { useDeferredValue, useEffect, useState } from 'react'
+import { ChevronDown, FolderPlus, Search } from 'lucide-react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import {
   addCard,
   createDeck,
+  db,
   deleteCard,
   resetCardProgress,
   updateCard,
-  useDb,
   type Card,
   type CardStateFilter,
   type Deck,
@@ -15,6 +16,8 @@ import { useInfiniteCards } from '@/hooks/useInfiniteCards'
 import { CardList } from '@/components/CardList'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { DailyProgress } from '@/components/DailyProgress'
+import { CardStatBlocks } from '@/components/StatsDashboard'
+import { useDailyProgress } from '@/hooks/useDailyProgress'
 import {
   CardFormDialog,
   type CardFormValues,
@@ -23,6 +26,12 @@ import {
   DeckFormDialog,
   type DeckFormData,
 } from '@/components/DeckFormDialog'
+import {
+  ALL_DECKS_VALUE,
+  getStoredDeckFilter,
+  persistDeckFilter,
+  resolveDeckFilter,
+} from '@/lib/deckFilter'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,14 +43,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-const ALL_DECKS_VALUE = 'all'
-
 export function AllCardsView() {
-  const { decks } = useDb()
+  const decksQuery = useLiveQuery(() => db.decks.orderBy('createdAt').toArray(), [])
+  const decks = decksQuery ?? []
+  const { cardsToStudy, loading: progressLoading } = useDailyProgress()
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
   const [state, setState] = useState<CardStateFilter>('all')
-  const [deckFilter, setDeckFilter] = useState(ALL_DECKS_VALUE)
+  const [deckFilter, setDeckFilter] = useState(getStoredDeckFilter)
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
   const [editingCard, setEditingCard] = useState<Card | null>(null)
@@ -61,6 +70,24 @@ export function AllCardsView() {
     state,
     selectedDeckId,
   )
+
+  useEffect(() => {
+    if (decksQuery === undefined) return
+
+    const resolved = resolveDeckFilter(
+      deckFilter,
+      decks.map((deck) => deck.id),
+    )
+    if (resolved !== deckFilter) {
+      setDeckFilter(resolved)
+      persistDeckFilter(resolved)
+    }
+  }, [deckFilter, decks, decksQuery])
+
+  function handleDeckFilterChange(value: string) {
+    setDeckFilter(value)
+    persistDeckFilter(value)
+  }
 
   function openCreate() {
     setFormMode('create')
@@ -146,11 +173,8 @@ export function AllCardsView() {
   return (
     <section className="flex flex-col gap-8">
       <WelcomeBanner />
-      <DailyProgress
-        onAddCards={openCreate}
-        deckId={selectedDeckId}
-        deckName={selectedDeckName}
-      />
+
+      {!progressLoading && cardsToStudy > 0 ? <CardStatBlocks /> : null}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -172,7 +196,7 @@ export function AllCardsView() {
           </div>
 
           <div className="w-full sm:w-48">
-            <Select value={deckFilter} onValueChange={setDeckFilter}>
+            <Select value={deckFilter} onValueChange={handleDeckFilterChange}>
               <SelectTrigger aria-label="Deck">
                 <SelectValue placeholder="All Decks" />
               </SelectTrigger>
@@ -187,18 +211,7 @@ export function AllCardsView() {
             </Select>
           </div>
 
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search front, back, romaji, example…"
-              className="pl-9"
-              aria-label="Search cards"
-            />
-          </div>
-
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 sm:ml-auto">
             <Button
               type="button"
               variant="secondary"
@@ -209,15 +222,21 @@ export function AllCardsView() {
             >
               <FolderPlus />
             </Button>
-            <Button type="button" size="icon" aria-label="Add card" onClick={openCreate}>
-              <Plus />
-            </Button>
           </div>
         </div>
 
         {status ? <p className="text-sm text-foreground">{status}</p> : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </div>
 
+      <DailyProgress
+        onAddCards={openCreate}
+        deckId={selectedDeckId}
+        deckName={selectedDeckName}
+        showStats={false}
+      />
+
+      <div className="flex flex-col gap-3">
         <button
           type="button"
           className="flex h-12 w-full items-center justify-between rounded-xl border border-border/80 bg-[color-mix(in_oklab,var(--card-bg)_55%,transparent)] px-4 text-left text-sm font-semibold text-foreground"
@@ -236,19 +255,31 @@ export function AllCardsView() {
         </button>
 
         {listOpen ? (
-          <div id="hub-card-list">
-            <CardList
-              items={items}
-              decks={decks}
-              hasMore={hasMore}
-              loading={loading}
-              onLoadMore={() => void loadMore()}
-              onEdit={openEdit}
-              onReset={(card) => void handleReset(card)}
-              onDelete={(card) => void handleDelete(card)}
-              onAssigned={(card, deck) => void handleAssigned(card, deck)}
-            />
-          </div>
+          <>
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search front, back, romaji, example…"
+                className="pl-9"
+                aria-label="Search cards"
+              />
+            </div>
+            <div id="hub-card-list">
+              <CardList
+                items={items}
+                decks={decks}
+                hasMore={hasMore}
+                loading={loading}
+                onLoadMore={() => void loadMore()}
+                onEdit={openEdit}
+                onReset={(card) => void handleReset(card)}
+                onDelete={(card) => void handleDelete(card)}
+                onAssigned={(card, deck) => void handleAssigned(card, deck)}
+              />
+            </div>
+          </>
         ) : null}
       </div>
 

@@ -15,12 +15,9 @@ const DEFAULT_EASE = 2.5
 const MIN_EASE = 1.3
 /** Relearn delay after Again so the card leaves the current session. */
 export const AGAIN_RELEARN_MS = 5 * 60 * 1000
-/** Longer rest when the learner is exhausted (0 hearts). */
-export const EXHAUSTED_REST_MS = 12 * 60 * 60 * 1000
 
 export type ApplySm2Options = {
   now?: number
-  exhausted?: boolean
 }
 
 /**
@@ -132,9 +129,7 @@ export function applySm2(
   if (easeFactor < MIN_EASE) easeFactor = MIN_EASE
 
   const due =
-    q < 3
-      ? now + (options.exhausted ? EXHAUSTED_REST_MS : AGAIN_RELEARN_MS)
-      : now + interval * DAY_MS
+    q < 3 ? now + AGAIN_RELEARN_MS : now + interval * DAY_MS
 
   const state: ReviewState =
     q < 3 ? 'learning' : interval >= 1 && reps >= 2 ? 'review' : 'learning'

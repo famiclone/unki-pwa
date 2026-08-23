@@ -101,7 +101,7 @@ export function CardRow({
             <SpeakButton
               text={card.example}
               label="Pronounce example"
-              className="size-7"
+              className="shrink-0"
             />
           </div>
         ) : null}
@@ -144,7 +144,7 @@ export function CardRow({
                   key={deck.id}
                   onSelect={() => void handleAssign(deck)}
                 >
-                  {card.deckId === deck.id ? <Check /> : <span className="size-4" />}
+                  {card.deckId === deck.id ? <Check /> : <span className="size-5" />}
                   <span className="truncate">{deck.name}</span>
                 </DropdownMenuItem>
               ))}

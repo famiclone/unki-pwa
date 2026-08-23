@@ -55,34 +55,10 @@ export interface Stats {
   currentStreak: number
   /** Local calendar date as YYYY-MM-DD. */
   lastStudyDate: string
-  /** Lifetime experience points (RPG). */
+  /** Lifetime experience points. */
   exp: number
-  /** Derived RPG level (starts at 1). */
+  /** Derived level (starts at 1). */
   level: number
-  /** Current hearts (0.5 steps). */
-  hearts: number
-  /** Derived heart containers: 3 + floor(level / 10). */
-  maxHearts: number
-  /** Derived attack; added to EXP when not exhausted. */
-  attack: number
-  /** Flat defense; each point reduces Again damage by 10% (capped at 80%). */
-  defense: number
-  /** True when hearts reach 0; ATK bonus is disabled until a heart is restored. */
-  isExhausted: boolean
-  /** Spendable currency earned from reviews. */
-  coins: number
-}
-
-export interface InventoryItem {
-  id: string
-  itemId: string
-  quantity: number
-  /** Unique trinket title when itemId is `random_trinket`. */
-  name?: string
-  /** Unique trinket copy when itemId is `random_trinket`. */
-  description?: string
-  /** Sell value in coins when itemId is `random_trinket`. */
-  value?: number
 }
 
 export interface DailyLog {
@@ -98,7 +74,6 @@ export type UnkiDB = Dexie & {
   reviews: EntityTable<Review, 'cardId'>
   stats: EntityTable<Stats, 'id'>
   dailyLog: EntityTable<DailyLog, 'id'>
-  inventory: EntityTable<InventoryItem, 'id'>
 }
 
 export const db = new Dexie('UnkiDB') as UnkiDB
@@ -297,4 +272,41 @@ db.version(12)
       .modify((row: { defense?: number }) => {
         if (typeof row.defense !== 'number') row.defense = 0
       })
+  })
+
+// Drop inventory and combat stats; keep streak + EXP/level only.
+db.version(13)
+  .stores({
+    decks: 'id, name, description, color, createdAt',
+    cards: 'id, deckId, front, romaji, back, example, createdAt',
+    reviews: 'cardId, state, due, stability, difficulty, reps',
+    stats: 'id, currentStreak, lastStudyDate, exp, level',
+    dailyLog: 'id, cardsReviewed, didStudy',
+    inventory: null,
+  })
+  .upgrade(async (tx) => {
+    await tx
+      .table('stats')
+      .toCollection()
+      .modify(
+        (
+          row: Stats & {
+            hearts?: number
+            maxHearts?: number
+            attack?: number
+            defense?: number
+            isExhausted?: boolean
+            coins?: number
+          },
+        ) => {
+          delete row.hearts
+          delete row.maxHearts
+          delete row.attack
+          delete row.defense
+          delete row.isExhausted
+          delete row.coins
+          if (typeof row.exp !== 'number') row.exp = 0
+          if (typeof row.level !== 'number') row.level = 1
+        },
+      )
   })

@@ -3,11 +3,9 @@ import { Toaster } from 'sonner'
 import { AppLayout } from './components/AppLayout'
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
 import { AllCardsView } from './views/AllCardsView'
-import { HeroView } from './views/HeroView'
 import { DecksView } from './views/DecksView'
 import { DeckEditorView } from './views/DeckEditorView'
 import { SettingsView } from './views/SettingsView'
-import { ShopView } from './views/ShopView'
 import { StudyView } from './views/StudyView'
 
 /** Vite BASE_URL ends with `/`; React Router basename should not. */
@@ -20,9 +18,9 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/cards" replace />} />
           <Route path="cards" element={<AllCardsView />} />
-          <Route path="hero" element={<HeroView />} />
-          <Route path="shop" element={<ShopView />} />
-          <Route path="dashboard" element={<Navigate to="/hero" replace />} />
+          <Route path="hero" element={<Navigate to="/cards" replace />} />
+          <Route path="shop" element={<Navigate to="/cards" replace />} />
+          <Route path="dashboard" element={<Navigate to="/cards" replace />} />
           <Route path="decks" element={<DecksView />} />
           <Route path="decks/:deckId" element={<DeckEditorView />} />
           <Route path="study" element={<StudyView />} />
