@@ -36,7 +36,7 @@ export function StreakBadge() {
       }
     >
       <Flame
-        className={cn('size-4', isActive ? 'fill-orange-500/30' : undefined)}
+        className={cn('size-5', isActive ? 'fill-orange-500/30' : undefined)}
         aria-hidden
       />
       <span>{streak}</span>

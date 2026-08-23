@@ -4,8 +4,6 @@ import { ArrowLeft, BookOpen, Download, Plus } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addCard, db, exportDeck, useDb } from '../db'
 import { useObjectUrl } from '../hooks/useObjectUrl'
-import { useDeckStats } from '@/hooks/useDeckStats'
-import { RunPrepModal } from '@/components/RunPrepModal'
 import type { Card } from '../db'
 import './DeckEditorView.css'
 import './DecksView.css'
@@ -38,7 +36,6 @@ export function DeckEditorView() {
   const { deckId = '' } = useParams<{ deckId: string }>()
   const { cards } = useDb(deckId)
   const deck = useLiveQuery(() => db.decks.get(deckId), [deckId])
-  const deckStats = useDeckStats()
 
   const [front, setFront] = useState('')
   const [romaji, setRomaji] = useState('')
@@ -48,7 +45,6 @@ export function DeckEditorView() {
   const [exporting, setExporting] = useState(false)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [status, setStatus] = useState<string | null>(null)
-  const [prepOpen, setPrepOpen] = useState(false)
 
   useEffect(() => {
     setFront('')
@@ -105,7 +101,7 @@ export function DeckEditorView() {
       <section>
         <p className="empty-state">Deck not found.</p>
         <Link to="/decks" className="back-link">
-          <ArrowLeft size={16} aria-hidden />
+          <ArrowLeft className="size-5" aria-hidden />
           Back to decks
         </Link>
       </section>
@@ -115,7 +111,7 @@ export function DeckEditorView() {
   return (
     <section className="deck-editor">
       <Link to="/decks" className="text-back">
-        <ArrowLeft size={16} aria-hidden />
+        <ArrowLeft className="size-5" aria-hidden />
         Decks
       </Link>
 
@@ -134,18 +130,14 @@ export function DeckEditorView() {
           disabled={exporting}
           onClick={() => void handleExport()}
         >
-          <Download size={18} aria-hidden />
+          <Download className="size-5" aria-hidden />
           {exporting ? 'Exporting…' : 'Export'}
         </button>
         {cards.length > 0 ? (
-          <button
-            type="button"
-            className="study-cta"
-            onClick={() => setPrepOpen(true)}
-          >
-            <BookOpen size={18} aria-hidden />
+          <Link to={`/decks/${deckId}/study`} className="study-cta">
+            <BookOpen className="size-5" aria-hidden />
             Study deck
-          </button>
+          </Link>
         ) : null}
       </div>
 
@@ -196,7 +188,7 @@ export function DeckEditorView() {
         />
 
         <button type="submit" disabled={saving || !front.trim() || !back.trim()}>
-          <Plus size={18} aria-hidden />
+          <Plus className="size-5" aria-hidden />
           {saving ? 'Saving…' : 'Add card'}
         </button>
       </form>
@@ -210,14 +202,6 @@ export function DeckEditorView() {
           ))}
         </ul>
       )}
-
-      <RunPrepModal
-        open={prepOpen}
-        onOpenChange={setPrepOpen}
-        deckId={deckId}
-        deckName={deck.name}
-        dueCount={deckStats[deckId]?.dueToday ?? 0}
-      />
     </section>
   )
 }

@@ -39,7 +39,7 @@ export function WeekProgressChart() {
                     className="inline-flex items-center gap-0.5 text-[11px] font-bold text-orange-500 tabular-nums"
                     title={`${streak}-day streak`}
                   >
-                    <Flame className="size-3 fill-orange-500/30" aria-hidden />
+                    <Flame className="size-5 fill-orange-500/30" aria-hidden />
                     {streak}
                   </span>
                 ) : null}

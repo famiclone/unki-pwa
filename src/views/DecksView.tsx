@@ -1,12 +1,11 @@
 import { type ChangeEvent, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { BookOpen, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { exportDeck, importDeck, useDb, type Deck } from '../db'
 import {
   DeckFormDialog,
   type DeckFormData,
 } from '../components/DeckFormDialog'
-import { RunPrepModal } from '@/components/RunPrepModal'
 import { Button } from '@/components/ui/button'
 import { useDeckStats } from '@/hooks/useDeckStats'
 import {
@@ -14,14 +13,15 @@ import {
   getContrastYIQ,
   normalizeHexColor,
 } from '@/lib/colorUtils'
+import { buildStudyHref } from '@/lib/studyMode'
 import { cn } from '@/lib/utils'
 
 export function DecksView() {
+  const navigate = useNavigate()
   const { decks, createDeck, updateDeck, deleteDeck } = useDb()
   const deckStats = useDeckStats()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null)
-  const [prepDeck, setPrepDeck] = useState<Deck | null>(null)
   const [importing, setImporting] = useState(false)
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
@@ -236,7 +236,7 @@ export function DecksView() {
                           : 'text-white hover:bg-white/15',
                       )}
                       aria-label={`Study ${deck.name}`}
-                      onClick={() => setPrepDeck(deck)}
+                      onClick={() => navigate(buildStudyHref({ deckId: deck.id }))}
                     >
                       <BookOpen />
                     </Button>
@@ -271,20 +271,6 @@ export function DecksView() {
           setEditingDeck(null)
         }}
         onSave={handleSave}
-      />
-
-      <RunPrepModal
-        open={prepDeck !== null}
-        onOpenChange={(open) => {
-          if (!open) setPrepDeck(null)
-        }}
-        deckId={prepDeck?.id}
-        deckName={prepDeck?.name ?? 'Deck'}
-        dueCount={
-          prepDeck
-            ? (deckStats[prepDeck.id]?.dueToday ?? 0)
-            : 0
-        }
       />
     </section>
   )

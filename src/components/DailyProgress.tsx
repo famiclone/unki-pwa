@@ -1,30 +1,27 @@
-import { useState } from 'react'
-import { Plus, Sword } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { BookOpen, Plus, SquarePlus } from 'lucide-react'
 import { useDailyProgress } from '@/hooks/useDailyProgress'
-import { useDeckStats } from '@/hooks/useDeckStats'
 import { CardStatBlocks } from '@/components/StatsDashboard'
-import { RunPrepModal } from '@/components/RunPrepModal'
 import { Button } from '@/components/ui/button'
+import { buildStudyHref } from '@/lib/studyMode'
+import { persistDeckFilter } from '@/lib/deckFilter'
 
 type DailyProgressProps = {
   onAddCards: () => void
   /** When set, Study opens that deck; otherwise the full queue. */
   deckId?: string | null
   deckName?: string | null
+  /** When false, Learned/Learning/New stats render in the parent instead. */
+  showStats?: boolean
 }
 
 export function DailyProgress({
   onAddCards,
   deckId,
-  deckName,
+  showStats = true,
 }: DailyProgressProps) {
+  const navigate = useNavigate()
   const { cardsToStudy, loading } = useDailyProgress()
-  const deckStats = useDeckStats()
-  const [prepOpen, setPrepOpen] = useState(false)
-
-  const dueCount = deckId
-    ? (deckStats[deckId]?.dueToday ?? 0)
-    : cardsToStudy
 
   if (loading) {
     return (
@@ -64,22 +61,29 @@ export function DailyProgress({
 
   return (
     <section aria-label="Daily progress" className="space-y-4">
-      <CardStatBlocks />
-      <Button
-        type="button"
-        className="h-16 w-full rounded-xl text-xl shadow-lg"
-        onClick={() => setPrepOpen(true)}
-      >
-        <Sword className="size-6" />
-        Go
-      </Button>
-      <RunPrepModal
-        open={prepOpen}
-        onOpenChange={setPrepOpen}
-        deckId={deckId}
-        deckName={deckName ?? (deckId ? 'Deck' : 'All cards')}
-        dueCount={dueCount}
-      />
+      {showStats ? <CardStatBlocks /> : null}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          className="h-16 min-w-0 flex-1 rounded-xl text-xl shadow-lg"
+          onClick={() => {
+            if (deckId) persistDeckFilter(deckId)
+            navigate(buildStudyHref({ deckId }))
+          }}
+        >
+          <BookOpen />
+          Study
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-16 w-16 shrink-0 rounded-xl shadow-sm [&_svg]:text-muted-foreground"
+          aria-label="Add card"
+          onClick={onAddCards}
+        >
+          <SquarePlus strokeWidth={1.75} />
+        </Button>
+      </div>
     </section>
   )
 }

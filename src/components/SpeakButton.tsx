@@ -21,7 +21,7 @@ export function SpeakButton({
       type="button"
       variant="ghost"
       size="icon"
-      className={cn('size-8 text-muted-foreground hover:text-foreground', className)}
+      className={cn('text-muted-foreground hover:text-foreground', className)}
       aria-label={label}
       title={label}
       onClick={(event) => {

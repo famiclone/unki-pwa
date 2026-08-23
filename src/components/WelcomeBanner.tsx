@@ -2,7 +2,6 @@ import { useStreak } from '@/hooks/useStreak'
 import { calculateLevelStats, getRankTitle } from '@/lib/gamification'
 import { getTimeBasedGreeting } from '@/lib/greeting'
 import { Progress } from '@/components/ui/progress'
-import { HeartsDisplay } from '@/components/HeartsDisplay'
 
 export function WelcomeBanner() {
   const { streak, stats, loading } = useStreak()
@@ -52,8 +51,6 @@ export function WelcomeBanner() {
           aria-label="Experience toward next level"
         />
       </div>
-
-      <HeartsDisplay stats={stats} />
     </header>
   )
 }
