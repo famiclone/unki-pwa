@@ -1,7 +1,8 @@
 import { calculateLevelStats } from '@/lib/gamification'
 import { getDisplayStreak } from '@/hooks/useStreak'
 import { useStatsData } from '@/hooks/useStatsData'
-import { ActivityChart } from '@/components/ActivityChart'
+import { ActivityHeatmap } from '@/components/ActivityHeatmap'
+import { heatmapPeriodTotal } from '@/lib/heatmap'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 
@@ -84,10 +85,11 @@ function MasteryBar({
 }
 
 export function StatsView() {
-  const { userStats, cardCounts, activityLog, loading } = useStatsData()
+  const { userStats, cardCounts, heatmapData, loading } = useStatsData()
   const level = calculateLevelStats(userStats.exp)
   const currentStreak = getDisplayStreak(userStats)
   const totalCards = cardCounts.review + cardCounts.learning + cardCounts.new
+  const heatmapTotal = heatmapPeriodTotal(heatmapData)
 
   if (loading) {
     return (
@@ -111,29 +113,29 @@ export function StatsView() {
         </p>
       </header>
 
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-border/80 bg-[color-mix(in_oklab,var(--card-bg)_55%,transparent)] px-6 py-8 backdrop-blur-[2px]">
+      <div className="flex items-center gap-4 rounded-2xl border border-border/80 bg-[color-mix(in_oklab,var(--card-bg)_55%,transparent)] px-4 py-4 backdrop-blur-[2px]">
         <div
-          className="relative flex size-28 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500 shadow-lg shadow-amber-500/25"
+          className="relative flex size-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500 shadow-md shadow-amber-500/20"
           aria-label={`Level ${level.currentLevel}`}
         >
-          <div className="flex size-[6.25rem] flex-col items-center justify-center rounded-full bg-background/95">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="flex size-[4.25rem] flex-col items-center justify-center rounded-full bg-background/95">
+            <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
               Level
             </span>
-            <span className="font-[family-name:var(--font-display)] text-4xl font-bold tabular-nums leading-none text-foreground">
+            <span className="font-[family-name:var(--font-display)] text-2xl font-bold tabular-nums leading-none text-foreground">
               {level.currentLevel}
             </span>
           </div>
         </div>
 
-        <div className="w-full max-w-xs space-y-2">
+        <div className="min-w-0 flex-1 space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs font-medium tabular-nums text-muted-foreground">
             <span>{level.currentLevelExp} XP</span>
             <span>{level.expNeededForNextLevel} XP to next</span>
           </div>
           <Progress
             value={level.progressPercentage}
-            className="h-3 bg-amber-500/15"
+            className="h-2.5 bg-amber-500/15"
             indicatorClassName="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300"
             aria-valuemin={0}
             aria-valuemax={100}
@@ -165,7 +167,17 @@ export function StatsView() {
         >
           Study Activity
         </h2>
-        <ActivityChart activityLog={activityLog} dayCount={14} />
+        <div className="rounded-xl border border-border/80 bg-[color-mix(in_oklab,var(--card-bg)_55%,transparent)] px-4 py-4 backdrop-blur-[2px]">
+          <p className="m-0 text-sm text-muted-foreground">
+            <span className="font-[family-name:var(--font-display)] text-2xl font-bold tabular-nums text-foreground">
+              {heatmapTotal}
+            </span>{' '}
+            cards reviewed in the last 90 days
+          </p>
+          <div className="mt-4">
+            <ActivityHeatmap heatmapData={heatmapData} />
+          </div>
+        </div>
       </section>
 
       <section className="space-y-4" aria-labelledby="deck-mastery-heading">
