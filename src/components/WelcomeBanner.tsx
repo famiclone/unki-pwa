@@ -1,13 +1,14 @@
+import { Link } from 'react-router-dom'
 import { useStreak } from '@/hooks/useStreak'
-import { calculateLevelStats, getRankTitle } from '@/lib/gamification'
+import { calculateLevelStats } from '@/lib/gamification'
 import { getTimeBasedGreeting } from '@/lib/greeting'
 import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
 
 export function WelcomeBanner() {
   const { streak, stats, loading } = useStreak()
   const greeting = getTimeBasedGreeting()
   const level = calculateLevelStats(stats.exp)
-  const rank = getRankTitle(level.currentLevel)
 
   const subtitle = loading
     ? 'Loading your streak…'
@@ -24,17 +25,18 @@ export function WelcomeBanner() {
         <p className="m-0 text-base text-muted-foreground sm:text-lg">{subtitle}</p>
       </div>
 
-      <div
-        className="space-y-2"
-        aria-label={`Level ${level.currentLevel}, ${rank}`}
+      <Link
+        to="/stats"
+        className={cn(
+          'block space-y-2 rounded-xl no-underline transition-opacity',
+          'hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        )}
+        aria-label={`Level ${level.currentLevel}. Open statistics.`}
       >
         <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 px-2.5 py-0.5 text-zinc-950 shadow-sm">
+          <span className="inline-flex items-center rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 px-2.5 py-0.5 text-zinc-950 shadow-sm">
             <span className="text-xs font-bold tracking-wide">
               Lv. {level.currentLevel}
-            </span>
-            <span className="text-[0.65rem] font-semibold uppercase tracking-widest opacity-80">
-              • {rank}
             </span>
           </span>
           <span className="text-xs font-medium tabular-nums text-muted-foreground">
@@ -50,7 +52,7 @@ export function WelcomeBanner() {
           aria-valuenow={Math.round(level.progressPercentage)}
           aria-label="Experience toward next level"
         />
-      </div>
+      </Link>
     </header>
   )
 }

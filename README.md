@@ -5,7 +5,7 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend �
 ## Study
 
 - Tap a card to flip (true 3D faces). The front uses the deck color; the back follows light/dark theme
-- While the question is showing, swipe **left** (Study again) or **right** (I know), or use the buttons. I know banks Good immediately, or (for short answers ≤ 10 characters) may roll a level-scaled challenge first (5% + 1%/level, max 50%). Peeking the back locks I know. Pass the challenge to bank Good; fail it (or Study again) to schedule a 5-minute relearn and leave the session queue
+- While the question is showing, swipe **left** (Study again) or **right** (I know), or use the buttons. Flip to check the answer, then rate. I know before peeking may roll a level-scaled challenge on short answers (≤ 10 characters; 5% + 1%/level, max 50%). After peeking, I know saves Good directly
 - Short questions (≤ 100 characters) are spoken on flip via the Web Speech API
 - Hub (`/cards`) shows Learned / Learning / New counts, streak, and Level / rank / XP. New cards use Front / Example (Front) / Back / Example (Back)
 - Session size (10 / 20 / 40 / All; default 20) lives in Settings. Reviews award XP immediately (I know +5; new card +10; Study again awards none)

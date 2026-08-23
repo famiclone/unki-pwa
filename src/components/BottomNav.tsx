@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { BookOpen, Library, Settings } from 'lucide-react'
+import { BarChart2, BookOpen, Library, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const items = [
@@ -18,6 +18,12 @@ const items = [
       pathname === '/cards' || pathname === '/',
   },
   {
+    to: '/stats',
+    label: 'Stats',
+    icon: BarChart2,
+    isActive: (pathname: string) => pathname.startsWith('/stats'),
+  },
+  {
     to: '/settings',
     label: 'Settings',
     icon: Settings,
@@ -30,10 +36,10 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 border-x border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"
+      className="z-50 w-full shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"
       aria-label="Main"
     >
-      <div className="grid h-16 grid-cols-3">
+      <div className="grid h-16 grid-cols-4">
         {items.map((item) => {
           const Icon = item.icon
           const active = item.isActive(pathname)

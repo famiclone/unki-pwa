@@ -181,7 +181,7 @@ export function DeckFormDialog({
               id="deck-image"
               type="file"
               accept="image/*"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base text-foreground file:mr-3 file:border-0 file:bg-transparent file:text-base file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm sm:file:text-sm"
               onChange={(e) => {
                 setImageFile(e.target.files?.[0] ?? null)
                 setClearImage(false)

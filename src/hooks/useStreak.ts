@@ -22,6 +22,7 @@ export function createDefaultStats(): Stats {
   return {
     id: GLOBAL_STATS_ID,
     currentStreak: 0,
+    maxStreak: 0,
     lastStudyDate: '',
     exp: 0,
     level: 1,
@@ -31,9 +32,14 @@ export function createDefaultStats(): Stats {
 export function normalizeStats(stats?: Partial<Stats> | null): Stats {
   const exp = Math.max(0, Math.floor(stats?.exp ?? 0))
   const level = calculateLevelStats(exp).currentLevel
+  const currentStreak = Math.max(0, Math.floor(stats?.currentStreak ?? 0))
   return {
     id: GLOBAL_STATS_ID,
-    currentStreak: Math.max(0, Math.floor(stats?.currentStreak ?? 0)),
+    currentStreak,
+    maxStreak: Math.max(
+      Math.max(0, Math.floor(stats?.maxStreak ?? 0)),
+      currentStreak,
+    ),
     lastStudyDate:
       typeof stats?.lastStudyDate === 'string' ? stats.lastStudyDate : '',
     exp,
@@ -73,9 +79,12 @@ export async function updateStreak(now = new Date()): Promise<Stats> {
     currentStreak = existing.currentStreak + 1
   }
 
+  const maxStreak = Math.max(existing.maxStreak, currentStreak)
+
   const next = normalizeStats({
     ...existing,
     currentStreak,
+    maxStreak,
     lastStudyDate: today,
   })
 

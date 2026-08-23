@@ -48,6 +48,7 @@
   background: var(--bg);
   color: var(--text-h);
   font: inherit;
+  font-size: max(16px, 1em);
 }
 
 .create-deck-row button,

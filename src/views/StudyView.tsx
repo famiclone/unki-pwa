@@ -11,7 +11,6 @@ import {
 } from '@/lib/studyMode'
 import { persistDeckFilter } from '@/lib/deckFilter'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
 import { ChallengeEngine } from '@/components/challenges/ChallengeEngine'
 import { Flashcard } from '@/components/Flashcard'
 import { SwipeCardShell } from '@/components/SwipeCardShell'
@@ -42,19 +41,13 @@ function GradeButtons({
   onAgain,
   onKnow,
   rating,
-  canKnow,
 }: {
   onAgain: () => void
   onKnow: () => void
   rating: boolean
-  canKnow: boolean
 }) {
   return (
-    <div
-      className={cn('grade-row', !canKnow && 'grade-row-single')}
-      role="group"
-      aria-label="Rate recall"
-    >
+    <div className="grade-row" role="group" aria-label="Rate recall">
       <button
         type="button"
         className="grade-btn grade-again"
@@ -63,16 +56,14 @@ function GradeButtons({
       >
         Study again
       </button>
-      {canKnow ? (
-        <button
-          type="button"
-          className="grade-btn grade-know"
-          disabled={rating}
-          onClick={onKnow}
-        >
-          I know
-        </button>
-      ) : null}
+      <button
+        type="button"
+        className="grade-btn grade-know"
+        disabled={rating}
+        onClick={onKnow}
+      >
+        I know
+      </button>
     </div>
   )
 }
@@ -96,13 +87,11 @@ function StudyFlashcard({
   meta: string
   deckColor?: string
 }) {
-  const canKnow = !revealed
-
   return (
     <div className="study-flashcard-stack touch-pan-y">
       <SwipeCardShell
         enabled={!rating}
-        allowChallenge={canKnow}
+        allowChallenge
         onSwipeLeft={onAgain}
         onSwipeRight={onKnow}
       >
@@ -121,17 +110,12 @@ function StudyFlashcard({
           onAgain={onAgain}
           onKnow={onKnow}
           rating={rating}
-          canKnow={canKnow}
         />
-        {revealed ? (
-          <p className="m-0 text-center text-xs text-muted-foreground">
-            Answer is showing — I know is locked. Study again to continue.
-          </p>
-        ) : (
-          <p className="m-0 text-center text-xs text-muted-foreground">
-            I know may open a short challenge. Peeking locks I know.
-          </p>
-        )}
+        <p className="m-0 text-center text-xs text-muted-foreground">
+          {revealed
+            ? 'Rate recall after checking the answer.'
+            : 'Flip to peek, or tap I know — short answers may trigger a challenge first.'}
+        </p>
       </div>
     </div>
   )
@@ -244,8 +228,8 @@ export function StudyView() {
   }
 
   function onKnow() {
-    if (!current || rating || revealed) return
-    if (tryTriggerChallenge(current.card.back, stats.level)) {
+    if (!current || rating) return
+    if (!revealed && tryTriggerChallenge(current.card.back, stats.level)) {
       setSessionState('CHALLENGE')
       return
     }
