@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type DailyLog, type Stats } from '@/db'
-import { createDefaultStats, getGlobalStats } from '@/hooks/useStreak'
+import { createDefaultStats, getGlobalStats, toLocalDateString } from '@/hooks/useStreak'
+import { generateHeatmapData, type HeatmapDay } from '@/lib/heatmap'
 
 export type CardStateCounts = {
   new: number
@@ -13,6 +14,7 @@ export type StatsData = {
   userStats: Stats
   cardCounts: CardStateCounts
   activityLog: DailyLog[]
+  heatmapData: HeatmapDay[]
 }
 
 const EMPTY_CARD_COUNTS: CardStateCounts = {
@@ -20,6 +22,8 @@ const EMPTY_CARD_COUNTS: CardStateCounts = {
   learning: 0,
   review: 0,
 }
+
+const HEATMAP_DAYS = 90
 
 async function loadCardStateCounts(): Promise<CardStateCounts> {
   const [reviews, cardCount] = await Promise.all([
@@ -47,24 +51,36 @@ async function loadCardStateCounts(): Promise<CardStateCounts> {
   }
 }
 
-async function loadActivityLog(): Promise<DailyLog[]> {
-  const logs = await db.dailyLog.orderBy('id').reverse().limit(14).toArray()
-  return logs.sort((a, b) => a.id.localeCompare(b.id))
+async function loadActivityLog(dayCount = HEATMAP_DAYS): Promise<DailyLog[]> {
+  const now = new Date()
+  now.setHours(12, 0, 0, 0)
+  const ids = Array.from({ length: dayCount }, (_, index) => {
+    const date = new Date(now)
+    date.setDate(date.getDate() - (dayCount - 1 - index))
+    return toLocalDateString(date)
+  })
+  const logs = await db.dailyLog.bulkGet(ids)
+  return logs.filter((entry): entry is DailyLog => entry != null)
 }
 
 async function loadStatsData(): Promise<StatsData> {
-  const [userStats, cardCounts, activityLog] = await Promise.all([
+  const activityLog = await loadActivityLog()
+  const [userStats, cardCounts] = await Promise.all([
     getGlobalStats(),
     loadCardStateCounts(),
-    loadActivityLog(),
   ])
 
-  return { userStats, cardCounts, activityLog }
+  return {
+    userStats,
+    cardCounts,
+    activityLog,
+    heatmapData: generateHeatmapData(activityLog, HEATMAP_DAYS),
+  }
 }
 
 /**
  * Aggregated stats for the Statistics screen: global stats, SRS card counts,
- * and the 14 most recent dailyLog entries (ascending by date).
+ * dailyLog activity, and 90-day heatmap data.
  */
 export function useStatsData() {
   const data = useLiveQuery(loadStatsData, [])
@@ -73,6 +89,7 @@ export function useStatsData() {
     userStats: data?.userStats ?? createDefaultStats(),
     cardCounts: data?.cardCounts ?? EMPTY_CARD_COUNTS,
     activityLog: data?.activityLog ?? [],
+    heatmapData: data?.heatmapData ?? generateHeatmapData([]),
     loading: data === undefined,
   }
 }

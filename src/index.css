@@ -222,6 +222,15 @@ body {
   height: 100dvh;
 }
 
+.heatmap-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.heatmap-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .app-shell {
   position: relative;
   isolation: isolate;
