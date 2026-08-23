@@ -9,7 +9,16 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend �
 - Short questions (≤ 100 characters) are spoken on flip via the Web Speech API
 - Hub (`/cards`) shows Learned / Learning / New counts, streak, and Level / rank / XP. New cards use Front / Example (Front) / Back / Example (Back)
 - Session size (10 / 20 / 40 / All; default 20) lives in Settings. Reviews award XP immediately (I know +5; new card +10; Study again awards none)
-- Bottom nav: Decks, Study (hub at `/cards`), Settings. Tap Study on the hub to start a session
+- Bottom nav: Decks, Study (hub at `/cards`), Stats, Settings. Tap Study on the hub to start a session
+
+## Statistics
+
+- `/stats` shows level and XP progress, current and best streak, a 90-day study activity heatmap, and deck mastery (review / learning / new breakdown)
+
+## Backup
+
+- Settings → Data Management: export a full `.zip` backup (decks, cards, reviews, stats, daily log, and images)
+- Import restores the backup after confirmation; the app reloads on success. Import validates the archive in memory before overwriting IndexedDB
 
 ## Stack
 
