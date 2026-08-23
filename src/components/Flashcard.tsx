@@ -197,8 +197,8 @@ export function Flashcard({
         tabIndex={0}
         aria-label={
           revealed
-            ? 'Flashcard back — swipe left to study again'
-            : 'Flashcard front — swipe right to challenge, left to study again, or tap to peek'
+            ? 'Flashcard back — swipe left to study again or right for I know'
+            : 'Flashcard front — swipe right for I know, left to study again, or tap to flip'
         }
       >
         <div className={cn(styles.front, contrast)}>

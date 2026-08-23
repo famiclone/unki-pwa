@@ -6,6 +6,7 @@ import { AllCardsView } from './views/AllCardsView'
 import { DecksView } from './views/DecksView'
 import { DeckEditorView } from './views/DeckEditorView'
 import { SettingsView } from './views/SettingsView'
+import { StatsView } from './views/StatsView'
 import { StudyView } from './views/StudyView'
 
 /** Vite BASE_URL ends with `/`; React Router basename should not. */
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="study" element={<StudyView />} />
           <Route path="decks/:deckId/study" element={<StudyView />} />
           <Route path="settings" element={<SettingsView />} />
+          <Route path="stats" element={<StatsView />} />
           <Route path="*" element={<Navigate to="/cards" replace />} />
         </Route>
       </Routes>

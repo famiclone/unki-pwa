@@ -53,6 +53,8 @@ export interface Review {
 export interface Stats {
   id: typeof GLOBAL_STATS_ID | string
   currentStreak: number
+  /** Longest consecutive-day study streak achieved. */
+  maxStreak: number
   /** Local calendar date as YYYY-MM-DD. */
   lastStudyDate: string
   /** Lifetime experience points. */
@@ -309,4 +311,24 @@ db.version(13)
           if (typeof row.level !== 'number') row.level = 1
         },
       )
+  })
+
+// Longest study streak for statistics.
+db.version(14)
+  .stores({
+    decks: 'id, name, description, color, createdAt',
+    cards: 'id, deckId, front, romaji, back, example, createdAt',
+    reviews: 'cardId, state, due, stability, difficulty, reps',
+    stats: 'id, currentStreak, maxStreak, lastStudyDate, exp, level',
+    dailyLog: 'id, cardsReviewed, didStudy',
+  })
+  .upgrade(async (tx) => {
+    await tx
+      .table('stats')
+      .toCollection()
+      .modify((row: Stats & { maxStreak?: number }) => {
+        if (typeof row.maxStreak !== 'number') {
+          row.maxStreak = Math.max(0, Math.floor(row.currentStreak ?? 0))
+        }
+      })
   })

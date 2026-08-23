@@ -1,4 +1,5 @@
 import { db, type Card, type Review } from './db'
+import { shuffled } from '../lib/shuffle'
 import {
   applySm2,
   createInitialSrsStats,
@@ -46,7 +47,7 @@ export async function getStudyQueue(
     }
   }
 
-  return [...due, ...news.slice(0, newLimit)]
+  return shuffled([...due, ...news.slice(0, newLimit)])
 }
 
 /** Apply a grade, upsert the review row, and return the updated review. */
