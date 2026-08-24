@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PartyPopper, Undo2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Deck } from '../db'
+import { db, type Card, type Deck } from '../db'
 import { getStudyQueue, rateCard, type StudyItem } from '../db/study'
 import type { Grade } from '../lib/srs'
 import {
@@ -12,6 +12,7 @@ import {
 import { persistDeckFilter } from '@/lib/deckFilter'
 import { toast } from 'sonner'
 import { ChallengeEngine } from '@/components/challenges/ChallengeEngine'
+import { Button } from '@/components/ui/button'
 import { Flashcard } from '@/components/Flashcard'
 import { SwipeCardShell } from '@/components/SwipeCardShell'
 import {
@@ -142,6 +143,7 @@ export function StudyView() {
   }, [decks])
 
   const [sessionQueue, setSessionQueue] = useState<StudyItem[]>([])
+  const [fullSessionCards, setFullSessionCards] = useState<Card[]>([])
   const [sessionState, setSessionState] = useState<SessionState>('CARD')
   const [revealed, setRevealed] = useState(false)
   const [rating, setRating] = useState(false)
@@ -165,6 +167,7 @@ export function StudyView() {
         const sessionBatch =
           limit === Number.POSITIVE_INFINITY ? batch : batch.slice(0, limit)
         setSessionQueue(sessionBatch)
+        setFullSessionCards(sessionBatch.map((item) => item.card))
         setMoreDueRemaining(batch.length > sessionBatch.length)
         setSessionState('CARD')
         setRevealed(false)
@@ -329,15 +332,20 @@ export function StudyView() {
               </p>
             )}
             <div className="study-actions">
-              <button type="button" className="back-link" onClick={returnHome}>
+              <Button
+                type="button"
+                className="h-16 w-full rounded-xl text-xl shadow-lg"
+                onClick={returnHome}
+              >
                 Return home
-              </button>
+              </Button>
             </div>
           </div>
         ) : current && sessionState === 'CHALLENGE' ? (
           <ChallengeEngine
             key={`challenge-${current.card.id}-${doneCount}`}
             card={current.card}
+            deckCards={fullSessionCards}
             busy={rating}
             onComplete={handleChallengeComplete}
           />
