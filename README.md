@@ -5,7 +5,7 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend �
 ## Study
 
 - Tap a card to flip (true 3D faces). The front uses the deck color; the back follows light/dark theme
-- Swipe **left** (Study again) or **right** (I know) on either face, or use the buttons. Flip to check the answer, then rate. I know before peeking may roll a level-scaled challenge on short answers (≤ 10 characters; 5% + 1%/level, max 50%): type, scramble, or reverse multiple-choice. After peeking, I know grades from recall time (Easy / Good / Hard)
+- Swipe **left** (Study again) or **right** (I know) on either face, or use the buttons. A successful swipe flies the card off-screen (no snap-back) until the next card enters. Flip to check the answer, then rate. I know before peeking may roll a level-scaled challenge on short answers (≤ 10 characters; 5% + 1%/level, max 50%): type, scramble, or reverse multiple-choice. After peeking, I know grades from recall time (Easy / Good / Hard)
 - After each grade, a short pause shows feedback before the next card
 - Short questions (≤ 100 characters) are spoken on flip via the Web Speech API
 - Hub (`/cards`) shows today’s plan (learned / remaining / added), streak, and Level / XP. Remaining matches the SRS study queue (due reviews + capped new cards). New cards use Front / Example (Front) / Back / Example (Back)
@@ -16,6 +16,7 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend �
 
 - `/decks` lists color-coded decks with FSRS mastery progress: learned/total (Review state), due today, a bottom progress bar, and `% Mastered`
 - Deck actions (edit, export, study, delete) live behind a ⋯ menu
+- Deck detail (`/decks/:id`) uses the same collapsible Cards browser as the study hub (search, FSRS state filter, infinite list)
 
 ## Statistics
 

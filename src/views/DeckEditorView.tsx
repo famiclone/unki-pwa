@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Download, Plus } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { toast } from 'sonner'
 import {
   addCard,
   db,
@@ -13,7 +14,7 @@ import {
   type Card,
   type Deck,
 } from '../db'
-import { CardRow } from '@/components/CardRow'
+import { CardsAccordion } from '@/components/CardsAccordion'
 import {
   CardFormDialog,
   type CardFormValues,
@@ -42,6 +43,8 @@ export function DeckEditorView() {
   const [editingCard, setEditingCard] = useState<Card | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
+  const [listRevision, setListRevision] = useState(0)
+  const [listOpen, setListOpen] = useState(true)
 
   useEffect(() => {
     setFront('')
@@ -50,6 +53,10 @@ export function DeckEditorView() {
     setImageFile(null)
     setFileInputKey((key) => key + 1)
   }, [deckId])
+
+  function bumpList() {
+    setListRevision((n) => n + 1)
+  }
 
   async function handleCreateCard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -70,6 +77,8 @@ export function DeckEditorView() {
       setBack('')
       setImageFile(null)
       setFileInputKey((key) => key + 1)
+      setListOpen(true)
+      bumpList()
     } finally {
       setSaving(false)
     }
@@ -109,6 +118,7 @@ export function DeckEditorView() {
       setStatus('Card updated.')
       setEditOpen(false)
       setEditingCard(null)
+      bumpList()
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Save failed.')
     } finally {
@@ -122,7 +132,8 @@ export function DeckEditorView() {
     )
     if (!confirmed) return
     await resetCardProgress(card.id)
-    setStatus('Progress reset.')
+    toast.success('Progress reset.')
+    bumpList()
   }
 
   async function handleDelete(card: Card) {
@@ -131,11 +142,13 @@ export function DeckEditorView() {
     )
     if (!confirmed) return
     await deleteCard(card.id)
-    setStatus('Card deleted.')
+    toast.success('Card deleted.')
+    bumpList()
   }
 
   function handleAssigned(card: Card, assignedDeck: Deck) {
-    setStatus(`Assigned “${card.front}” to “${assignedDeck.name}”.`)
+    toast.success(`Assigned “${card.front}” to “${assignedDeck.name}”.`)
+    bumpList()
   }
 
   if (deck === undefined) {
@@ -155,7 +168,7 @@ export function DeckEditorView() {
   }
 
   return (
-    <section className="deck-editor">
+    <section className="deck-editor flex flex-col gap-6">
       <Link to="/decks" className="text-back">
         <ArrowLeft className="size-5" aria-hidden />
         Decks
@@ -239,24 +252,18 @@ export function DeckEditorView() {
         </button>
       </form>
 
-      {cards.length === 0 ? (
-        <p className="empty-state">No cards yet. Add one with the form above.</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {cards.map((card) => (
-            <CardRow
-              key={card.id}
-              card={card}
-              decks={decks}
-              deckColor={deck.color}
-              onEdit={openEdit}
-              onReset={(item) => void handleReset(item)}
-              onDelete={(item) => void handleDelete(item)}
-              onAssigned={handleAssigned}
-            />
-          ))}
-        </ul>
-      )}
+      <CardsAccordion
+        deckId={deckId}
+        decks={decks}
+        open={listOpen}
+        onOpenChange={setListOpen}
+        revision={listRevision}
+        listId="deck-card-list"
+        onEdit={openEdit}
+        onReset={(card) => void handleReset(card)}
+        onDelete={(card) => void handleDelete(card)}
+        onAssigned={handleAssigned}
+      />
 
       <CardFormDialog
         open={editOpen}

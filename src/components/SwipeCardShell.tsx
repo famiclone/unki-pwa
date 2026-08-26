@@ -1,5 +1,6 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useRef } from 'react'
 import {
+  animate,
   motion,
   useMotionValue,
   useTransform,
@@ -9,6 +10,8 @@ import { Ban, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const SWIPE_THRESHOLD = 100
+const EXIT_DISTANCE = 520
+const EXIT_MS = 0.2
 
 type SwipeCardShellProps = {
   enabled: boolean
@@ -19,6 +22,7 @@ type SwipeCardShellProps = {
 
 /**
  * Tinder-style horizontal drag shell with Again / I know overlays.
+ * Successful swipes fly off-screen and stay there until the card unmounts.
  */
 export function SwipeCardShell({
   enabled,
@@ -30,20 +34,30 @@ export function SwipeCardShell({
   const leftOpacity = useTransform(x, [-SWIPE_THRESHOLD, -24, 0], [1, 0.45, 0])
   const rightOpacity = useTransform(x, [0, 24, SWIPE_THRESHOLD], [0, 0.45, 1])
   const rotate = useTransform(x, [-200, 0, 200], [-12, 0, 12])
+  const exiting = useRef(false)
 
   function handleDragEnd(_: unknown, info: PanInfo) {
-    if (!enabled) return
+    if (!enabled || exiting.current) return
+
     if (info.offset.x < -SWIPE_THRESHOLD) {
+      exiting.current = true
+      void animate(x, -EXIT_DISTANCE, { duration: EXIT_MS, ease: 'easeOut' })
       onSwipeLeft()
       return
     }
+
     if (info.offset.x > SWIPE_THRESHOLD) {
+      exiting.current = true
+      void animate(x, EXIT_DISTANCE, { duration: EXIT_MS, ease: 'easeOut' })
       onSwipeRight()
+      return
     }
+
+    void animate(x, 0, { type: 'spring', stiffness: 420, damping: 32 })
   }
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full overflow-visible">
       <motion.div
         className="pointer-events-none absolute inset-0 z-10 flex items-start justify-between p-4"
         aria-hidden
@@ -66,13 +80,12 @@ export function SwipeCardShell({
 
       <motion.div
         style={{ x, rotate }}
-        drag={enabled ? 'x' : false}
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.85}
+        drag={enabled && !exiting.current ? 'x' : false}
+        dragElastic={0.9}
         onDragEnd={handleDragEnd}
         className={cn(
           'relative w-full touch-pan-y',
-          enabled && 'cursor-grab active:cursor-grabbing',
+          enabled && !exiting.current && 'cursor-grab active:cursor-grabbing',
         )}
       >
         {children}
