@@ -26,11 +26,51 @@ export type FsrsSchedulerFields = {
 
 const scheduler = fsrs({ maximum_interval: 36500 })
 
+/** Baseline difficulty for migrated / repaired non-New cards (FSRS scale ~1–10). */
+const DEFAULT_REVIEW_DIFFICULTY = 5
+const DEFAULT_REVIEW_STABILITY = 2
+
 function toTimestamp(value: Date | number | string | undefined): number | undefined {
   if (value == null) return undefined
   if (typeof value === 'number') return value
   const ms = new Date(value).getTime()
   return Number.isFinite(ms) ? ms : undefined
+}
+
+/**
+ * Ensure scheduler fields are valid for ts-fsrs.
+ * New cards must keep 0/0; learned cards need positive difficulty + stability.
+ */
+export function sanitizeFsrsFields(fields: FsrsSchedulerFields): FsrsSchedulerFields {
+  if (fields.state === State.New) {
+    return {
+      ...fields,
+      stability: 0,
+      difficulty: 0,
+      elapsed_days: fields.elapsed_days || 0,
+      scheduled_days: 0,
+      learning_steps: fields.learning_steps || 0,
+      reps: fields.reps || 0,
+      lapses: fields.lapses || 0,
+    }
+  }
+
+  let stability = fields.stability
+  let difficulty = fields.difficulty
+  if (!(difficulty > 0)) difficulty = DEFAULT_REVIEW_DIFFICULTY
+  if (!(stability > 0)) stability = DEFAULT_REVIEW_STABILITY
+  difficulty = Math.min(10, Math.max(1, difficulty))
+
+  return {
+    ...fields,
+    stability,
+    difficulty,
+    elapsed_days: Math.max(0, fields.elapsed_days || 0),
+    scheduled_days: Math.max(0, fields.scheduled_days || 0),
+    reps: Math.max(0, fields.reps || 0),
+    lapses: Math.max(0, fields.lapses || 0),
+    learning_steps: Math.max(0, fields.learning_steps || 0),
+  }
 }
 
 /** Map stored scheduler fields into a ts-fsrs Card. */
@@ -81,7 +121,11 @@ export function gradeFsrsFields(
   rating: Rating.Again | Rating.Good | Rating.Hard | Rating.Easy,
   now = new Date(),
 ): FsrsSchedulerFields {
-  const record = scheduler.next(toFsrsCard(fields), now, rating as FsrsGrade)
+  const record = scheduler.next(
+    toFsrsCard(sanitizeFsrsFields(fields)),
+    now,
+    rating as FsrsGrade,
+  )
   return fromFsrsCard(record.card)
 }
 

@@ -11,7 +11,7 @@ export function AppLayout() {
   const inDungeon = isStudyPath(pathname)
 
   return (
-    <div className="app-shell relative mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden border-x border-border">
+    <div className="app-shell relative mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden">
       <main
         className={cn(
           'min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 pt-6 pb-4 text-left',

@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { State } from 'ts-fsrs'
-import { createNewFSRSCard, uiStateFromFsrs } from '@/lib/fsrsService'
+import { createNewFSRSCard, sanitizeFsrsFields, uiStateFromFsrs } from '@/lib/fsrsService'
 
 /** Vocabulary side of a card (e.g. Kanji from textbooks). */
 export type CardFront = string
@@ -139,40 +139,57 @@ export function hydrateCardWithFsrs(
 
   if (hasFsrs) {
     return {
-      ...defaults,
       ...card,
-      due: typeof card.due === 'number' ? card.due : defaults.due,
-      stability: card.stability!,
-      difficulty: typeof card.difficulty === 'number' ? card.difficulty : defaults.difficulty,
-      elapsed_days: card.elapsed_days!,
-      scheduled_days:
-        typeof card.scheduled_days === 'number'
-          ? card.scheduled_days
-          : defaults.scheduled_days,
-      reps: typeof card.reps === 'number' ? card.reps : 0,
-      lapses: typeof card.lapses === 'number' ? card.lapses : 0,
-      learning_steps:
-        typeof card.learning_steps === 'number' ? card.learning_steps : 0,
-      state: card.state as State,
-    }
+      ...sanitizeFsrsFields({
+        due: typeof card.due === 'number' ? card.due : defaults.due,
+        stability: card.stability!,
+        difficulty:
+          typeof card.difficulty === 'number' ? card.difficulty : defaults.difficulty,
+        elapsed_days: card.elapsed_days!,
+        scheduled_days:
+          typeof card.scheduled_days === 'number'
+            ? card.scheduled_days
+            : defaults.scheduled_days,
+        reps: typeof card.reps === 'number' ? card.reps : 0,
+        lapses: typeof card.lapses === 'number' ? card.lapses : 0,
+        learning_steps:
+          typeof card.learning_steps === 'number' ? card.learning_steps : 0,
+        state: card.state as State,
+        ...(typeof card.last_review === 'number'
+          ? { last_review: card.last_review }
+          : {}),
+      }),
+    } as Card
   }
 
   if (review) {
     const intervalDays = Math.max(0, review.stability ?? 0)
     const state = mapLegacyState(review.state)
+    // SM-2 ease (~1.3–3) → rough FSRS difficulty (~1–10).
+    const ease =
+      typeof review.difficulty === 'number' && review.difficulty > 0
+        ? review.difficulty
+        : 2.5
+    const mappedDifficulty =
+      state === State.New
+        ? 0
+        : Math.min(10, Math.max(1, 11 - ease * 2.5))
+
     return {
       ...card,
-      ...defaults,
-      due: typeof review.due === 'number' ? review.due : defaults.due,
-      // SM-2 stored interval days in `stability`.
-      stability: intervalDays > 0 ? intervalDays : state === State.New ? 0 : 2,
-      difficulty: defaults.difficulty,
-      elapsed_days: 0,
-      scheduled_days: intervalDays,
-      reps: Math.max(0, review.reps ?? 0),
-      lapses: 0,
-      learning_steps: 0,
-      state,
+      ...sanitizeFsrsFields({
+        ...defaults,
+        due: typeof review.due === 'number' ? review.due : defaults.due,
+        stability:
+          intervalDays > 0 ? intervalDays : state === State.New ? 0 : 2,
+        difficulty: mappedDifficulty,
+        elapsed_days: 0,
+        scheduled_days: intervalDays,
+        reps: Math.max(0, review.reps ?? 0),
+        lapses: 0,
+        learning_steps: 0,
+        state,
+      }),
     }
   }
 
@@ -468,4 +485,21 @@ db.version(15)
     }
 
     await reviewsTable.clear()
+  })
+
+// Repair invalid FSRS memory states from the initial SM-2 → FSRS migration.
+db.version(16)
+  .stores({
+    decks: 'id, name, description, color, createdAt',
+    cards: 'id, deckId, front, romaji, back, example, createdAt, due, state',
+    reviews: 'cardId, state, due, stability, difficulty, reps',
+    stats: 'id, currentStreak, maxStreak, lastStudyDate, exp, level',
+    dailyLog: 'id, cardsReviewed, didStudy',
+  })
+  .upgrade(async (tx) => {
+    const cardsTable = tx.table('cards')
+    const cards = (await cardsTable.toArray()) as LegacyCardRow[]
+    for (const raw of cards) {
+      await cardsTable.put(hydrateCardWithFsrs(raw, null))
+    }
   })

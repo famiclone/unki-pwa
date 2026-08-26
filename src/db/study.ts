@@ -4,6 +4,7 @@ import {
   gradeCard,
   gradeToRating,
   isNewCard,
+  sanitizeFsrsFields,
 } from '../lib/fsrsService'
 import type { Grade } from '../lib/srs'
 
@@ -83,7 +84,8 @@ export async function rateCard(
       : currentCard
   if (!existing) throw new Error('Card not found')
 
-  const next = gradeCard(existing, gradeToRating(grade), new Date())
+  const sanitized = { ...existing, ...sanitizeFsrsFields(existing) }
+  const next = gradeCard(sanitized, gradeToRating(grade), new Date())
   await db.cards.put(next)
   return next
 }

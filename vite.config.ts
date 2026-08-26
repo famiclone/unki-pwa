@@ -28,7 +28,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       strategies: 'generateSW',
-      includeAssets: ['favicon.svg', 'icons.svg'],
+      includeAssets: [
+        'favicon.svg',
+        'favicon.png',
+        'icons.svg',
+        'apple-touch-icon.png',
+        'pwa-192x192.png',
+        'pwa-512x512.png',
+      ],
       workbox: {
         // Cache all static assets (HTML, JS, CSS, and common media).
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
@@ -37,8 +44,8 @@ export default defineConfig({
         name: 'Unki',
         short_name: 'Unki',
         description: 'Local-first flashcards with spaced repetition',
-        theme_color: '#0f766e',
-        background_color: '#f7f4ef',
+        theme_color: '#0d1117',
+        background_color: '#0d1117',
         display: 'standalone',
         orientation: 'portrait-primary',
         start_url: './',
@@ -58,7 +65,7 @@ export default defineConfig({
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'maskable',
+            purpose: 'any maskable',
           },
         ],
       },
