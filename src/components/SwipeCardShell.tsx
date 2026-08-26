@@ -12,30 +12,23 @@ const SWIPE_THRESHOLD = 100
 
 type SwipeCardShellProps = {
   enabled: boolean
-  /** Right swipe starts a challenge — only while the answer is still hidden. */
-  allowChallenge?: boolean
   children: ReactNode
   onSwipeLeft: () => void
   onSwipeRight: () => void
 }
 
 /**
- * Tinder-style horizontal drag shell with Again / Challenge overlays.
+ * Tinder-style horizontal drag shell with Again / I know overlays.
  */
 export function SwipeCardShell({
   enabled,
-  allowChallenge = true,
   children,
   onSwipeLeft,
   onSwipeRight,
 }: SwipeCardShellProps) {
   const x = useMotionValue(0)
   const leftOpacity = useTransform(x, [-SWIPE_THRESHOLD, -24, 0], [1, 0.45, 0])
-  const rightOpacity = useTransform(
-    x,
-    [0, 24, SWIPE_THRESHOLD],
-    allowChallenge ? [0, 0.45, 1] : [0, 0, 0],
-  )
+  const rightOpacity = useTransform(x, [0, 24, SWIPE_THRESHOLD], [0, 0.45, 1])
   const rotate = useTransform(x, [-200, 0, 200], [-12, 0, 12])
 
   function handleDragEnd(_: unknown, info: PanInfo) {
@@ -44,7 +37,7 @@ export function SwipeCardShell({
       onSwipeLeft()
       return
     }
-    if (allowChallenge && info.offset.x > SWIPE_THRESHOLD) {
+    if (info.offset.x > SWIPE_THRESHOLD) {
       onSwipeRight()
     }
   }
@@ -62,15 +55,13 @@ export function SwipeCardShell({
           <Ban className="size-5" />
           Again
         </motion.div>
-        {allowChallenge ? (
-          <motion.div
-            style={{ opacity: rightOpacity }}
-            className="flex items-center gap-1.5 rounded-full bg-emerald-600/90 px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg"
-          >
-            Challenge
-            <Check className="size-5" />
-          </motion.div>
-        ) : null}
+        <motion.div
+          style={{ opacity: rightOpacity }}
+          className="flex items-center gap-1.5 rounded-full bg-emerald-600/90 px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg"
+        >
+          I know
+          <Check className="size-5" />
+        </motion.div>
       </motion.div>
 
       <motion.div

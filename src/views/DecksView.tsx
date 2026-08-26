@@ -1,13 +1,28 @@
 import { type ChangeEvent, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookOpen, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
+import {
+  BookOpen,
+  Download,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+} from 'lucide-react'
 import { exportDeck, importDeck, useDb, type Deck } from '../db'
 import {
   DeckFormDialog,
   type DeckFormData,
 } from '../components/DeckFormDialog'
 import { Button } from '@/components/ui/button'
-import { useDeckStats } from '@/hooks/useDeckStats'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useDeckStats, EMPTY_DECK_STATS } from '@/hooks/useDeckStats'
 import {
   DEFAULT_DECK_COLOR,
   getContrastYIQ,
@@ -142,33 +157,80 @@ export function DecksView() {
             const color = normalizeHexColor(deck.color ?? DEFAULT_DECK_COLOR)
             const contrast = getContrastYIQ(color)
             const isDarkText = contrast === 'text-black'
-            const stats = deckStats[deck.id] ?? { totalCards: 0, dueToday: 0 }
+            const stats = deckStats[deck.id] ?? EMPTY_DECK_STATS
 
             return (
               <li key={deck.id}>
                 <article
                   className={cn(
-                    'relative overflow-hidden rounded-3xl p-5 shadow-sm',
+                    'relative overflow-hidden rounded-3xl p-5 pb-7 shadow-sm',
                     contrast,
                   )}
                   style={{ backgroundColor: color }}
                 >
-                  <Link
-                    to={`/decks/${deck.id}`}
-                    className={cn(
-                      'block no-underline',
-                      contrast,
-                    )}
-                  >
-                    <h2 className="m-0 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
-                      {deck.name}
-                    </h2>
-                    {deck.description ? (
-                      <p className="mt-1 mb-0 line-clamp-2 text-sm opacity-80">
-                        {deck.description}
-                      </p>
-                    ) : null}
-                  </Link>
+                  <div className="flex items-start gap-2">
+                    <Link
+                      to={`/decks/${deck.id}`}
+                      className={cn('min-w-0 flex-1 block no-underline', contrast)}
+                    >
+                      <h2 className="m-0 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
+                        {deck.name}
+                      </h2>
+                      {deck.description ? (
+                        <p className="mt-1 mb-0 line-clamp-2 text-sm opacity-80">
+                          {deck.description}
+                        </p>
+                      ) : null}
+                    </Link>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className={cn(
+                            'size-9 shrink-0',
+                            isDarkText
+                              ? 'text-black hover:bg-black/10'
+                              : 'text-white hover:bg-white/15',
+                          )}
+                          aria-label={`${deck.name} actions`}
+                        >
+                          <MoreHorizontal />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => openEdit(deck)}>
+                          <Pencil />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={exportingId === deck.id}
+                          onSelect={() => void handleExport(deck.id)}
+                        >
+                          <Download />
+                          {exportingId === deck.id ? 'Exporting…' : 'Export'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() =>
+                            navigate(buildStudyHref({ deckId: deck.id }))
+                          }
+                        >
+                          <BookOpen />
+                          Study
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => handleDelete(deck.id, deck.name)}
+                        >
+                          <Trash2 />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span
@@ -179,7 +241,7 @@ export function DecksView() {
                           : 'bg-white text-black',
                       )}
                     >
-                      {stats.totalCards} cards
+                      {stats.learnedCards}/{stats.totalCards} learned
                     </span>
                     <span
                       className={cn(
@@ -193,68 +255,21 @@ export function DecksView() {
                     </span>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-1">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className={cn(
-                        'size-9',
-                        isDarkText
-                          ? 'text-black hover:bg-black/10'
-                          : 'text-white hover:bg-white/15',
-                      )}
-                      aria-label={`Edit ${deck.name}`}
-                      onClick={() => openEdit(deck)}
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className={cn(
-                        'size-9',
-                        isDarkText
-                          ? 'text-black hover:bg-black/10'
-                          : 'text-white hover:bg-white/15',
-                      )}
-                      aria-label={`Export ${deck.name}`}
-                      disabled={exportingId === deck.id}
-                      onClick={() => void handleExport(deck.id)}
-                    >
-                      <Download />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className={cn(
-                        'size-9',
-                        isDarkText
-                          ? 'text-black hover:bg-black/10'
-                          : 'text-white hover:bg-white/15',
-                      )}
-                      aria-label={`Study ${deck.name}`}
-                      onClick={() => navigate(buildStudyHref({ deckId: deck.id }))}
-                    >
-                      <BookOpen />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className={cn(
-                        'size-9',
-                        isDarkText
-                          ? 'text-black hover:bg-black/10'
-                          : 'text-white hover:bg-white/15',
-                      )}
-                      aria-label={`Delete ${deck.name}`}
-                      onClick={() => handleDelete(deck.id, deck.name)}
-                    >
-                      <Trash2 />
-                    </Button>
+                  <p className="pointer-events-none absolute right-4 bottom-3 m-0 text-[11px] font-semibold opacity-70">
+                    {stats.progressPercent}% Mastered
+                  </p>
+                  <div
+                    className="absolute bottom-0 left-0 h-1.5 w-full bg-black/20"
+                    role="progressbar"
+                    aria-valuenow={stats.progressPercent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${stats.progressPercent}% mastered`}
+                  >
+                    <div
+                      className="h-full bg-white/70 transition-all duration-500"
+                      style={{ width: `${stats.progressPercent}%` }}
+                    />
                   </div>
                 </article>
               </li>

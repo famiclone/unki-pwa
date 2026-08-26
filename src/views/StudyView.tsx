@@ -33,6 +33,9 @@ type Feedback = {
 /** Scramble UI stays stable only for short answers. */
 const CHALLENGE_MAX_BACK_LENGTH = 10
 
+/** Pause after grading so feedback can read before the next card. */
+const CARD_ADVANCE_DELAY_MS = 650
+
 /** Map front-of-card recall time to FSRS Hard / Good / Easy grades. */
 function gradeFromRecallMs(elapsedMs: number): Grade {
   const seconds = elapsedMs / 1000
@@ -108,7 +111,6 @@ function StudyFlashcard({
     <div className="study-flashcard-stack touch-pan-y">
       <SwipeCardShell
         enabled={!rating}
-        allowChallenge
         onSwipeLeft={onAgain}
         onSwipeRight={onKnow}
       >
@@ -259,10 +261,20 @@ export function StudyView() {
 
       await recordStudyActivity()
       setDoneCount((n) => n + 1)
+
+      await new Promise<void>((resolve) => {
+        const advance = window.setTimeout(() => resolve(), CARD_ADVANCE_DELAY_MS)
+        timeoutsRef.current.push(advance)
+      })
+
       setSessionQueue((prev) => prev.slice(1))
       setRevealed(false)
       setRecallDuration(0)
       setSessionState('CARD')
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Could not save rating',
+      )
     } finally {
       setRating(false)
     }
@@ -322,16 +334,14 @@ export function StudyView() {
   return (
     <section className="study-view relative">
       {finished ? null : (
-        <div className="dungeon-dock">
-          <button
-            type="button"
-            className="dungeon-dock-run"
-            onClick={returnHome}
-          >
-            <Undo2 className="size-5" aria-hidden />
-            Leave
-          </button>
-        </div>
+        <button
+          type="button"
+          className="study-leave"
+          onClick={returnHome}
+        >
+          <Undo2 className="size-5" aria-hidden />
+          Leave
+        </button>
       )}
 
       <header className="view-header">

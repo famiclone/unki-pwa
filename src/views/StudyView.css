@@ -2,54 +2,22 @@
   position: relative;
 }
 
-.dungeon-dock {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  z-index: 40;
-  display: flex;
-  width: 100%;
-  max-width: 28rem;
-  transform: translateX(-50%);
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem calc(0.75rem + env(safe-area-inset-bottom));
-  border-x: 1px solid var(--border);
-  border-top: 1px solid var(--border);
-  background: var(--background);
-  box-sizing: border-box;
-}
-
-.dungeon-dock-run,
-.dungeon-dock-bag {
+.study-leave {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 2.75rem;
-  padding: 0.55rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--card-bg);
-  color: var(--fg-color);
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
   font: inherit;
-  font-size: 0.95rem;
-  font-weight: 650;
+  font-size: 0.9rem;
   cursor: pointer;
-  box-shadow: 0 0.3125rem 1.25rem -12px rgba(0, 0, 0, 0.16);
 }
 
-.dungeon-dock-run {
-  flex: 1;
-}
-
-.dungeon-dock-bag {
-  flex: 0 0 auto;
-  min-width: 5.75rem;
-}
-
-.dungeon-dock-run:hover,
-.dungeon-dock-bag:hover {
-  filter: brightness(1.05);
+.study-leave:hover {
+  color: var(--text-h);
 }
 
 .study-view .view-header {
