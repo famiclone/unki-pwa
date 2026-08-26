@@ -13,7 +13,6 @@ import {
   createDeck,
   type Card,
   type Deck,
-  type Review,
 } from '@/db'
 import { getSrsProgress } from '@/lib/srsProgress'
 import { SrsBattery } from '@/components/SrsBattery'
@@ -36,7 +35,6 @@ import {
 
 type CardRowProps = {
   card: Card
-  review: Review | null
   decks: Deck[]
   deckColor?: string
   onEdit: (card: Card) => void
@@ -47,7 +45,6 @@ type CardRowProps = {
 
 export function CardRow({
   card,
-  review,
   decks,
   deckColor,
   onEdit,
@@ -55,7 +52,7 @@ export function CardRow({
   onDelete,
   onAssigned,
 }: CardRowProps) {
-  const progress = getSrsProgress(review)
+  const progress = getSrsProgress(card)
   const [deckDialogOpen, setDeckDialogOpen] = useState(false)
 
   async function handleAssign(deck: Deck) {

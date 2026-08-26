@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
-import { createInitialSrsStats, srsStatsToReview } from '../lib/srs'
+import { createNewFSRSCard } from '../lib/fsrsService'
 import { db, type Card, type Deck, type DailyLog, type Stats } from './db'
 import { getGlobalStats, putGlobalStats } from '@/hooks/useStreak'
 import { DEFAULT_DECK_COLOR, normalizeHexColor } from '@/lib/colorUtils'
@@ -330,7 +330,6 @@ export async function importDeck(file: File): Promise<Deck> {
   }
 
   const cards: Card[] = []
-  const reviews: ReturnType<typeof srsStatsToReview>[] = []
 
   for (const exported of raw.cards) {
     if (
@@ -352,6 +351,7 @@ export async function importDeck(file: File): Promise<Deck> {
       back: exported.back.trim(),
       createdAt:
         typeof exported.createdAt === 'number' ? exported.createdAt : now,
+      ...createNewFSRSCard(new Date(now)),
       ...(exported.romaji?.trim() ? { romaji: exported.romaji.trim() } : {}),
       ...(typeof exported.example === 'string' && exported.example.trim()
         ? { example: exported.example.trim() }
@@ -360,14 +360,12 @@ export async function importDeck(file: File): Promise<Deck> {
     }
 
     cards.push(card)
-    reviews.push(srsStatsToReview(card.id, createInitialSrsStats(now)))
   }
 
-  await db.transaction('rw', db.decks, db.cards, db.reviews, async () => {
+  await db.transaction('rw', db.decks, db.cards, async () => {
     await db.decks.add(newDeck)
     if (cards.length > 0) {
       await db.cards.bulkAdd(cards)
-      await db.reviews.bulkAdd(reviews)
     }
   })
 

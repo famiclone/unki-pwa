@@ -1,5 +1,13 @@
 import JSZip from 'jszip'
-import { db, type Card, type DailyLog, type Deck, type Review, type Stats } from '@/db'
+import {
+  db,
+  hydrateCardWithFsrs,
+  type Card,
+  type DailyLog,
+  type Deck,
+  type Review,
+  type Stats,
+} from '@/db'
 import { toLocalDateString } from '@/hooks/useStreak'
 
 export const BACKUP_JSON_FILENAME = 'database.json' as const
@@ -10,6 +18,7 @@ export type BackupCard = Omit<Card, 'image'> & { imagePath?: string }
 export type BackupDatabase = {
   decks: BackupDeck[]
   cards: BackupCard[]
+  /** Legacy SM-2 rows; optional in newer backups. */
   reviews: Review[]
   stats: Stats[]
   dailyLog: DailyLog[]
@@ -65,7 +74,7 @@ function parseBackupDatabase(raw: unknown): BackupDatabase {
   }
 
   const data = raw as Record<string, unknown>
-  const required = ['decks', 'cards', 'reviews', 'stats', 'dailyLog'] as const
+  const required = ['decks', 'cards', 'stats', 'dailyLog'] as const
 
   for (const key of required) {
     if (!Array.isArray(data[key])) {
@@ -76,7 +85,7 @@ function parseBackupDatabase(raw: unknown): BackupDatabase {
   return {
     decks: data.decks as BackupDeck[],
     cards: data.cards as BackupCard[],
-    reviews: data.reviews as Review[],
+    reviews: Array.isArray(data.reviews) ? (data.reviews as Review[]) : [],
     stats: data.stats as Stats[],
     dailyLog: data.dailyLog as DailyLog[],
   }
@@ -104,19 +113,25 @@ async function prepareRestorePayload(
 ): Promise<{
   decks: Deck[]
   cards: Card[]
-  reviews: Review[]
   stats: Stats[]
   dailyLog: DailyLog[]
 }> {
-  const [decks, cards] = await Promise.all([
+  const [decks, restoredCards] = await Promise.all([
     Promise.all(parsed.decks.map((deck) => restoreImageFromZip(zip, deck))),
     Promise.all(parsed.cards.map((card) => restoreImageFromZip(zip, card))),
   ])
 
+  const reviewById = new Map(
+    parsed.reviews.map((review) => [review.cardId, review]),
+  )
+
+  const cards = restoredCards.map((card) =>
+    hydrateCardWithFsrs(card, reviewById.get(card.id) ?? null),
+  )
+
   return {
     decks,
     cards,
-    reviews: parsed.reviews,
     stats: parsed.stats,
     dailyLog: parsed.dailyLog,
   }
@@ -125,7 +140,6 @@ async function prepareRestorePayload(
 async function replaceDatabaseTables(payload: {
   decks: Deck[]
   cards: Card[]
-  reviews: Review[]
   stats: Stats[]
   dailyLog: DailyLog[]
 }): Promise<void> {
@@ -144,9 +158,6 @@ async function replaceDatabaseTables(payload: {
       await Promise.all([
         payload.decks.length > 0 ? db.decks.bulkAdd(payload.decks) : Promise.resolve(),
         payload.cards.length > 0 ? db.cards.bulkAdd(payload.cards) : Promise.resolve(),
-        payload.reviews.length > 0
-          ? db.reviews.bulkAdd(payload.reviews)
-          : Promise.resolve(),
         payload.stats.length > 0 ? db.stats.bulkAdd(payload.stats) : Promise.resolve(),
         payload.dailyLog.length > 0
           ? db.dailyLog.bulkAdd(payload.dailyLog)
@@ -180,10 +191,9 @@ export async function importFullBackup(file: File): Promise<void> {
 
 /** Export every Dexie table and blob images into a downloadable backup zip. */
 export async function exportFullBackup(): Promise<void> {
-  const [decks, cards, reviews, stats, dailyLog] = await Promise.all([
+  const [decks, cards, stats, dailyLog] = await Promise.all([
     db.decks.toArray(),
     db.cards.toArray(),
-    db.reviews.toArray(),
     db.stats.toArray(),
     db.dailyLog.toArray(),
   ])
@@ -197,7 +207,7 @@ export async function exportFullBackup(): Promise<void> {
   const payload: BackupDatabase = {
     decks: decks.map((deck) => stripImageToPath(deck, 'deck', imgFolder)),
     cards: cards.map((card) => stripImageToPath(card, 'card', imgFolder)),
-    reviews,
+    reviews: [],
     stats,
     dailyLog,
   }

@@ -1,24 +1,21 @@
-import { db, type Card, type Review } from './db'
+import { db, type Card } from './db'
 import { shuffled } from '../lib/shuffle'
 import {
-  applySm2,
-  createInitialSrsStats,
-  reviewToSrsStats,
-  srsStatsToReview,
-  type Grade,
-} from '../lib/srs'
+  gradeCard,
+  gradeToRating,
+  isNewCard,
+} from '../lib/fsrsService'
+import type { Grade } from '../lib/srs'
 
 export type StudyItem = {
   card: Card
-  review: Review | null
 }
 
 const DEFAULT_NEW_CARD_LIMIT = 20
 
 /**
- * Count of cards that would enter a study session: due reviews
- * (state !== 'new', due <= now) plus up to `newLimit` new cards.
- * New cards are excluded from the due bucket even though their due is now.
+ * Count of cards that would enter a study session: due non-new cards
+ * plus up to `newLimit` new cards.
  */
 export async function countStudyQueue(
   deckId?: string,
@@ -30,26 +27,22 @@ export async function countStudyQueue(
     : await db.cards.orderBy('createdAt').toArray()
   if (cards.length === 0) return 0
 
-  const reviews = await db.reviews.bulkGet(cards.map((card) => card.id))
   let due = 0
   let news = 0
 
-  for (let i = 0; i < cards.length; i++) {
-    const review = reviews[i] ?? null
-
-    if (!review || review.state === 'new') {
+  for (const card of cards) {
+    if (isNewCard(card)) {
       news += 1
       continue
     }
-
-    if (review.due <= now) due += 1
+    if (card.due <= now) due += 1
   }
 
   return due + Math.min(news, newLimit)
 }
 
 /**
- * Due reviews (due <= now, not new), plus a batch of new cards.
+ * Due cards (due <= now, not New), plus a capped batch of New cards.
  * Pass deckId to scope to one deck; omit to study the whole library.
  */
 export async function getStudyQueue(
@@ -62,47 +55,40 @@ export async function getStudyQueue(
     : await db.cards.orderBy('createdAt').toArray()
   if (cards.length === 0) return []
 
-  const reviews = await db.reviews.bulkGet(cards.map((card) => card.id))
   const due: StudyItem[] = []
   const news: StudyItem[] = []
 
-  for (let i = 0; i < cards.length; i++) {
-    const card = cards[i]!
-    const review = reviews[i] ?? null
-
-    if (!review || review.state === 'new') {
-      news.push({ card, review })
+  for (const card of cards) {
+    if (isNewCard(card)) {
+      news.push({ card })
       continue
     }
-
-    if (review.due <= now) {
-      due.push({ card, review })
+    if (card.due <= now) {
+      due.push({ card })
     }
   }
 
   return shuffled([...due, ...news.slice(0, newLimit)])
 }
 
-/** Apply a grade, upsert the review row, and return the updated review. */
+/** Apply an FSRS grade and persist the updated card. */
 export async function rateCard(
   cardId: string,
   grade: Grade,
-  currentReview?: Review | null,
-): Promise<Review> {
+  currentCard?: Card | null,
+): Promise<Card> {
   const existing =
-    currentReview === undefined
-      ? ((await db.reviews.get(cardId)) ?? null)
-      : currentReview
+    currentCard === undefined
+      ? ((await db.cards.get(cardId)) ?? null)
+      : currentCard
+  if (!existing) throw new Error('Card not found')
 
-  const next = applySm2(reviewToSrsStats(existing), grade)
-  const review = srsStatsToReview(cardId, next)
-  await db.reviews.put(review)
-  return review
+  const next = gradeCard(existing, gradeToRating(grade), new Date())
+  await db.cards.put(next)
+  return next
 }
 
-/** Ensure a new card starts with a 'new' review row. */
-export async function ensureNewReview(cardId: string): Promise<void> {
-  const existing = await db.reviews.get(cardId)
-  if (existing) return
-  await db.reviews.add(srsStatsToReview(cardId, createInitialSrsStats()))
+/** @deprecated FSRS fields are created with the card; kept for call-site compat. */
+export async function ensureNewReview(_cardId: string): Promise<void> {
+  // no-op — scheduling lives on the card row
 }

@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { State } from 'ts-fsrs'
 import { db, type DailyLog, type Stats } from '@/db'
 import { createDefaultStats, getGlobalStats, toLocalDateString } from '@/hooks/useStreak'
 import { generateHeatmapData, type HeatmapDay } from '@/lib/heatmap'
@@ -6,7 +7,7 @@ import { generateHeatmapData, type HeatmapDay } from '@/lib/heatmap'
 export type CardStateCounts = {
   new: number
   learning: number
-  /** Cards in review state (mastered). */
+  /** Cards in Review state (mastered schedule). */
   review: number
 }
 
@@ -26,23 +27,18 @@ const EMPTY_CARD_COUNTS: CardStateCounts = {
 const HEATMAP_DAYS = 90
 
 async function loadCardStateCounts(): Promise<CardStateCounts> {
-  const [reviews, cardCount] = await Promise.all([
-    db.reviews.toArray(),
-    db.cards.count(),
-  ])
+  const cards = await db.cards.toArray()
 
   let review = 0
   let learning = 0
   let notStarted = 0
 
-  for (const row of reviews) {
-    if (row.state === 'review') review += 1
-    else if (row.state === 'learning') learning += 1
-    else notStarted += 1
+  for (const card of cards) {
+    if (card.state === State.Review) review += 1
+    else if (card.state === State.Learning || card.state === State.Relearning) {
+      learning += 1
+    } else notStarted += 1
   }
-
-  const missingReviews = Math.max(0, cardCount - reviews.length)
-  notStarted += missingReviews
 
   return {
     new: notStarted,
@@ -79,7 +75,7 @@ async function loadStatsData(): Promise<StatsData> {
 }
 
 /**
- * Aggregated stats for the Statistics screen: global stats, SRS card counts,
+ * Aggregated stats for the Statistics screen: global stats, FSRS card counts,
  * dailyLog activity, and 90-day heatmap data.
  */
 export function useStatsData() {

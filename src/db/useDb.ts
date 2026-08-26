@@ -1,7 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { createInitialSrsStats, srsStatsToReview } from '../lib/srs'
 import { DEFAULT_DECK_COLOR, normalizeHexColor } from '../lib/colorUtils'
-import { db, type Card, type Deck, type Review, type ReviewState } from './db'
+import { createNewFSRSCard, cardMatchesUiState } from '../lib/fsrsService'
+import {
+  db,
+  hydrateCardWithFsrs,
+  type Card,
+  type Deck,
+  type ReviewState,
+} from './db'
 
 export type CreateDeckInput = {
   name: string
@@ -54,7 +60,7 @@ export type CardsPageQuery = {
 }
 
 export type CardsPageResult = {
-  items: Array<{ card: Card; review: Review | null }>
+  items: Array<{ card: Card }>
   hasMore: boolean
 }
 
@@ -140,10 +146,9 @@ async function updateDeck({
 }
 
 async function deleteDeck(deckId: string): Promise<void> {
-  await db.transaction('rw', db.decks, db.cards, db.reviews, async () => {
+  await db.transaction('rw', db.decks, db.cards, async () => {
     const cardIds = await db.cards.where('deckId').equals(deckId).primaryKeys()
     if (cardIds.length > 0) {
-      await db.reviews.bulkDelete(cardIds)
       await db.cards.bulkDelete(cardIds)
     }
     await db.decks.delete(deckId)
@@ -163,6 +168,7 @@ async function addCard({
     : await ensureDefaultDeck()
 
   const imageBlob = image instanceof Blob ? image : undefined
+  const fsrs = createNewFSRSCard()
 
   const card: Card = {
     id: crypto.randomUUID(),
@@ -170,15 +176,13 @@ async function addCard({
     front: front.trim(),
     back: back.trim(),
     createdAt: Date.now(),
+    ...fsrs,
     ...(romaji?.trim() ? { romaji: romaji.trim() } : {}),
     ...(example?.trim() ? { example: example.trim() } : {}),
     ...(imageBlob ? { image: imageBlob } : {}),
   }
 
-  await db.transaction('rw', db.cards, db.reviews, async () => {
-    await db.cards.add(card)
-    await db.reviews.add(srsStatsToReview(card.id, createInitialSrsStats()))
-  })
+  await db.cards.add(card)
   return card
 }
 
@@ -233,16 +237,27 @@ async function assignCardToDeck(cardId: string, deckId: string): Promise<Card> {
 }
 
 async function deleteCard(cardId: string): Promise<void> {
-  await db.transaction('rw', db.cards, db.reviews, async () => {
-    await db.reviews.delete(cardId)
-    await db.cards.delete(cardId)
-  })
+  await db.cards.delete(cardId)
 }
 
-async function resetCardProgress(cardId: string): Promise<Review> {
-  const review = srsStatsToReview(cardId, createInitialSrsStats())
-  await db.reviews.put(review)
-  return review
+async function resetCardProgress(cardId: string): Promise<Card> {
+  const existing = await db.cards.get(cardId)
+  if (!existing) throw new Error('Card not found')
+  const next = hydrateCardWithFsrs(
+    {
+      id: existing.id,
+      deckId: existing.deckId,
+      front: existing.front,
+      back: existing.back,
+      createdAt: existing.createdAt,
+      ...(existing.romaji ? { romaji: existing.romaji } : {}),
+      ...(existing.example ? { example: existing.example } : {}),
+      ...(existing.image ? { image: existing.image } : {}),
+    },
+    null,
+  )
+  await db.cards.put(next)
+  return next
 }
 
 async function getCardsByDeck(deckId: string): Promise<Card[]> {
@@ -266,12 +281,8 @@ async function pageFromCards(
   limit: number,
 ): Promise<CardsPageResult> {
   const slice = cards.slice(offset, offset + limit)
-  const reviews = await db.reviews.bulkGet(slice.map((card) => card.id))
   return {
-    items: slice.map((card, index) => ({
-      card,
-      review: reviews[index] ?? null,
-    })),
+    items: slice.map((card) => ({ card })),
     hasMore: offset + limit < cards.length,
   }
 }
@@ -290,7 +301,6 @@ export async function getCardsPage({
   const wantsState = state !== 'all'
   const wantsDeck = Boolean(deckId)
 
-  // Fast path: all decks, no extra filters — Dexie offset/limit.
   if (!wantsSearch && !wantsState && !wantsDeck) {
     const cards = await db.cards
       .orderBy('createdAt')
@@ -299,12 +309,8 @@ export async function getCardsPage({
       .limit(limit + 1)
       .toArray()
     const page = cards.slice(0, limit)
-    const reviews = await db.reviews.bulkGet(page.map((card) => card.id))
     return {
-      items: page.map((card, index) => ({
-        card,
-        review: reviews[index] ?? null,
-      })),
+      items: page.map((card) => ({ card })),
       hasMore: cards.length > limit,
     }
   }
@@ -321,13 +327,7 @@ export async function getCardsPage({
 
   for (const card of newest) {
     if (!matchesSearch(card, search)) continue
-
-    if (wantsState) {
-      const review = (await db.reviews.get(card.id)) ?? null
-      const cardState: ReviewState = review?.state ?? 'new'
-      if (cardState !== state) continue
-    }
-
+    if (wantsState && !cardMatchesUiState(card, state)) continue
     matched.push(card)
   }
 

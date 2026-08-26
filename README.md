@@ -25,7 +25,7 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend â
 - Vite + React + TypeScript
 - Tailwind CSS + shadcn/ui
 - Dexie.js (IndexedDB)
-- SM-2 spaced repetition
+- FSRS spaced repetition (`ts-fsrs`)
 - `vite-plugin-pwa` for installable offline use
 
 ## Scripts

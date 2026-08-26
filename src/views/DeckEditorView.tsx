@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Download, Plus } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -12,7 +12,6 @@ import {
   useDb,
   type Card,
   type Deck,
-  type Review,
 } from '../db'
 import { CardRow } from '@/components/CardRow'
 import {
@@ -31,13 +30,6 @@ export function DeckEditorView() {
   const { deckId = '' } = useParams<{ deckId: string }>()
   const { cards, decks } = useDb(deckId)
   const deck = useLiveQuery(() => db.decks.get(deckId), [deckId])
-  const reviews = useLiveQuery(() => db.reviews.toArray(), [])
-
-  const reviewByCardId = useMemo(() => {
-    const map = new Map<string, Review>()
-    for (const review of reviews ?? []) map.set(review.cardId, review)
-    return map
-  }, [reviews])
 
   const [front, setFront] = useState('')
   const [romaji, setRomaji] = useState('')
@@ -255,7 +247,6 @@ export function DeckEditorView() {
             <CardRow
               key={card.id}
               card={card}
-              review={reviewByCardId.get(card.id) ?? null}
               decks={decks}
               deckColor={deck.color}
               onEdit={openEdit}
