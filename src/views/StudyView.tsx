@@ -260,13 +260,13 @@ export function StudyView() {
       }
 
       await recordStudyActivity()
-      setDoneCount((n) => n + 1)
 
       await new Promise<void>((resolve) => {
         const advance = window.setTimeout(() => resolve(), CARD_ADVANCE_DELAY_MS)
         timeoutsRef.current.push(advance)
       })
 
+      setDoneCount((n) => n + 1)
       setSessionQueue((prev) => prev.slice(1))
       setRevealed(false)
       setRecallDuration(0)
@@ -394,7 +394,7 @@ export function StudyView() {
           </div>
         ) : current && sessionState === 'CHALLENGE' ? (
           <ChallengeEngine
-            key={`challenge-${current.card.id}-${doneCount}`}
+            key={`challenge-${current.card.id}`}
             card={current.card}
             deckCards={fullSessionCards}
             busy={rating}
@@ -402,7 +402,7 @@ export function StudyView() {
           />
         ) : current ? (
           <StudyFlashcard
-            key={`${current.card.id}-${doneCount}`}
+            key={current.card.id}
             item={current}
             revealed={revealed}
             onReveal={handleReveal}
