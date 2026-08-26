@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useInView } from 'react-intersection-observer'
-import type { Card, Deck, Review } from '@/db'
+import type { Card, Deck } from '@/db'
 import type { InfiniteCardItem } from '@/hooks/useInfiniteCards'
 import { CardRow } from '@/components/CardRow'
 
@@ -54,11 +54,10 @@ export function CardList({
 
   return (
     <ul className="flex flex-col gap-2">
-      {items.map(({ card, review }) => (
+      {items.map(({ card }) => (
         <CardRow
           key={card.id}
           card={card}
-          review={review as Review | null}
           decks={decks}
           deckColor={card.deckId ? deckById.get(card.deckId)?.color : undefined}
           onEdit={onEdit}

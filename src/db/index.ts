@@ -1,6 +1,8 @@
 export {
   db,
   GLOBAL_STATS_ID,
+  hydrateCardWithFsrs,
+  cardUiState,
   type Card,
   type Deck,
   type Review,

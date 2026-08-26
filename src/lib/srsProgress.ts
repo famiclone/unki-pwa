@@ -1,18 +1,21 @@
-import type { Review } from '@/db'
+import type { Card } from '@/db'
+import { State } from 'ts-fsrs'
+import { isNewCard } from '@/lib/fsrsService'
 
 /**
- * Map review SRS stats to a 0–100 "battery" progress value.
- * Uses state, reps, and stability (SM-2 interval days).
+ * Map FSRS card stats to a 0–100 "battery" progress value.
  */
-export function getSrsProgress(review: Review | null | undefined): number {
-  if (!review || review.state === 'new') return 0
+export function getSrsProgress(card: Card | null | undefined): number {
+  if (!card || isNewCard(card)) return 0
 
-  if (review.state === 'learning') {
-    return Math.min(35, 8 + review.reps * 9)
+  if (card.state === State.Learning || card.state === State.Relearning) {
+    return Math.min(35, 8 + card.reps * 9)
   }
 
-  // Reviewing: climb with successful reps and longer intervals.
-  const fromReps = Math.min(40, review.reps * 6)
-  const fromInterval = Math.min(50, Math.log2(Math.max(review.stability, 1) + 1) * 12)
-  return Math.min(100, Math.round(35 + fromReps + fromInterval))
+  const fromReps = Math.min(40, card.reps * 6)
+  const fromStability = Math.min(
+    50,
+    Math.log2(Math.max(card.stability, 1) + 1) * 12,
+  )
+  return Math.min(100, Math.round(35 + fromReps + fromStability))
 }

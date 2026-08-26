@@ -20,6 +20,7 @@ import {
   recordStudyActivity,
   useStreak,
 } from '@/hooks/useStreak'
+import { isNewCard } from '@/lib/fsrsService'
 import './StudyView.css'
 
 type SessionState = 'CARD' | 'CHALLENGE'
@@ -31,6 +32,21 @@ type Feedback = {
 
 /** Scramble UI stays stable only for short answers. */
 const CHALLENGE_MAX_BACK_LENGTH = 10
+
+/** Map front-of-card recall time to FSRS Hard / Good / Easy grades. */
+function gradeFromRecallMs(elapsedMs: number): Grade {
+  const seconds = elapsedMs / 1000
+  if (seconds < 3) return 4
+  if (seconds < 8) return 3
+  return 2
+}
+
+function successFeedbackLabel(grade: Grade, expGained: number): string {
+  if (grade === 4) return `Perfect! (+${expGained} EXP)`
+  if (grade === 3) return `Good! (+${expGained} EXP)`
+  if (grade === 2) return `Hard (+${expGained} EXP)`
+  return `+${expGained} EXP`
+}
 
 function tryTriggerChallenge(cardBack: string, heroLevel: number): boolean {
   if (cardBack.length > CHALLENGE_MAX_BACK_LENGTH) return false
@@ -146,6 +162,8 @@ export function StudyView() {
   const [fullSessionCards, setFullSessionCards] = useState<Card[]>([])
   const [sessionState, setSessionState] = useState<SessionState>('CARD')
   const [revealed, setRevealed] = useState(false)
+  const [cardStartTime, setCardStartTime] = useState(() => Date.now())
+  const [recallDuration, setRecallDuration] = useState(0)
   const [rating, setRating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [doneCount, setDoneCount] = useState(0)
@@ -171,6 +189,8 @@ export function StudyView() {
         setMoreDueRemaining(batch.length > sessionBatch.length)
         setSessionState('CARD')
         setRevealed(false)
+        setRecallDuration(0)
+        setCardStartTime(Date.now())
         setDoneCount(0)
         setSessionExp(0)
       })
@@ -188,6 +208,18 @@ export function StudyView() {
     }
   }, [])
 
+  const current = sessionQueue[0]
+  const finished = sessionState === 'CARD' && !current
+  const sessionComplete = finished && doneCount > 0
+
+  // Reset recall timer whenever the front of a new card is shown.
+  useEffect(() => {
+    if (!current || sessionState !== 'CARD') return
+    setCardStartTime(Date.now())
+    setRecallDuration(0)
+    setRevealed(false)
+  }, [current?.card.id, sessionState])
+
   function spawnFeedback(text: string) {
     feedbackSeq.current += 1
     const id = Date.now() + feedbackSeq.current
@@ -198,20 +230,25 @@ export function StudyView() {
     timeoutsRef.current.push(hide)
   }
 
-  const current = sessionQueue[0]
-  const finished = sessionState === 'CARD' && !current
-  const sessionComplete = finished && doneCount > 0
+  function handleReveal() {
+    setRevealed((wasRevealed) => {
+      if (!wasRevealed) {
+        setRecallDuration(Date.now() - cardStartTime)
+      }
+      return !wasRevealed
+    })
+  }
 
   async function finishCard(grade: Grade) {
     if (!current || rating) return
 
     setRating(true)
     try {
-      const wasNew = !current.review || current.review.state === 'new'
-      await rateCard(current.card.id, grade, current.review)
+      const wasNew = isNewCard(current.card)
+      await rateCard(current.card.id, grade, current.card)
       const award = await awardReviewExp(grade, wasNew)
       if (award.expGained > 0) {
-        spawnFeedback(`+${award.expGained} EXP`)
+        spawnFeedback(successFeedbackLabel(grade, award.expGained))
         setSessionExp((value) => value + award.expGained)
       } else {
         spawnFeedback('Needs review')
@@ -224,6 +261,7 @@ export function StudyView() {
       setDoneCount((n) => n + 1)
       setSessionQueue((prev) => prev.slice(1))
       setRevealed(false)
+      setRecallDuration(0)
       setSessionState('CARD')
     } finally {
       setRating(false)
@@ -236,10 +274,13 @@ export function StudyView() {
       setSessionState('CHALLENGE')
       return
     }
-    void finishCard(3)
+    const elapsedMs =
+      recallDuration > 0 ? recallDuration : Date.now() - cardStartTime
+    void finishCard(gradeFromRecallMs(elapsedMs))
   }
 
   function handleChallengeComplete(isSuccess: boolean) {
+    // Challenges ignore the recall timer; success is always a solid Good.
     void finishCard(isSuccess ? 3 : 1)
   }
 
@@ -354,7 +395,7 @@ export function StudyView() {
             key={`${current.card.id}-${doneCount}`}
             item={current}
             revealed={revealed}
-            onReveal={() => setRevealed((value) => !value)}
+            onReveal={handleReveal}
             onAgain={() => void finishCard(1)}
             onKnow={onKnow}
             rating={rating}
