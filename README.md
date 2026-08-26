@@ -25,6 +25,10 @@ Local-first flashcard PWA (Anki-style). Hosted on GitHub Pages with no backend â
 
 - Light/dark theme; mobile browser / PWA chrome (`theme-color`) matches the app background
 
+## Install (PWA)
+
+- Manifest name / short name: **Unki**. Icons: `pwa-192x192.png`, `pwa-512x512.png` (including maskable), plus `apple-touch-icon.png` for iOS home screen
+
 ## Backup
 
 - Settings â†’ Data Management: export a full `.zip` backup (decks, cards, reviews, stats, daily log, and images)
