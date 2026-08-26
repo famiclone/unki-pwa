@@ -1,18 +1,18 @@
-import { useCardStats } from '@/hooks/useCardStats'
+import { useDailyProgress } from '@/hooks/useDailyProgress'
 import { WeekProgressChart } from '@/components/WeekProgressChart'
 
 const METRICS = [
-  { key: 'learned', label: 'Learned' },
-  { key: 'learning', label: 'Learning' },
-  { key: 'new', label: 'New' },
+  { key: 'cardsStudiedToday', label: 'Learned' },
+  { key: 'cardsToStudy', label: 'Remaining' },
+  { key: 'cardsAddedToday', label: 'Added' },
 ] as const
 
 export function CardStatBlocks() {
-  const stats = useCardStats()
+  const stats = useDailyProgress()
 
   return (
     <div
-      aria-label="Card statistics"
+      aria-label="Today’s study plan"
       className="grid grid-cols-3 gap-2 sm:gap-3"
     >
       {METRICS.map(({ key, label }) => (
@@ -21,7 +21,7 @@ export function CardStatBlocks() {
           className="rounded-xl border border-border/80 bg-[color-mix(in_oklab,var(--card-bg)_55%,transparent)] px-3 py-3 backdrop-blur-[2px] sm:px-4 sm:py-4"
         >
           <p className="m-0 font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-foreground tabular-nums sm:text-4xl">
-            {stats[key]}
+            {stats.loading ? '—' : stats[key]}
           </p>
           <p className="m-0 mt-1 text-xs text-muted-foreground sm:text-sm">
             {label}

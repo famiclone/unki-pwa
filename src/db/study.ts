@@ -16,6 +16,39 @@ export type StudyItem = {
 const DEFAULT_NEW_CARD_LIMIT = 20
 
 /**
+ * Count of cards that would enter a study session: due reviews
+ * (state !== 'new', due <= now) plus up to `newLimit` new cards.
+ * New cards are excluded from the due bucket even though their due is now.
+ */
+export async function countStudyQueue(
+  deckId?: string,
+  newLimit = DEFAULT_NEW_CARD_LIMIT,
+  now = Date.now(),
+): Promise<number> {
+  const cards = deckId
+    ? await db.cards.where('deckId').equals(deckId).sortBy('createdAt')
+    : await db.cards.orderBy('createdAt').toArray()
+  if (cards.length === 0) return 0
+
+  const reviews = await db.reviews.bulkGet(cards.map((card) => card.id))
+  let due = 0
+  let news = 0
+
+  for (let i = 0; i < cards.length; i++) {
+    const review = reviews[i] ?? null
+
+    if (!review || review.state === 'new') {
+      news += 1
+      continue
+    }
+
+    if (review.due <= now) due += 1
+  }
+
+  return due + Math.min(news, newLimit)
+}
+
+/**
  * Due reviews (due <= now, not new), plus a batch of new cards.
  * Pass deckId to scope to one deck; omit to study the whole library.
  */
