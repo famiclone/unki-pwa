@@ -1,10 +1,24 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Download, Plus } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { addCard, db, exportDeck, useDb } from '../db'
-import { useObjectUrl } from '../hooks/useObjectUrl'
-import type { Card } from '../db'
+import {
+  addCard,
+  db,
+  deleteCard,
+  exportDeck,
+  resetCardProgress,
+  updateCard,
+  useDb,
+  type Card,
+  type Deck,
+  type Review,
+} from '../db'
+import { CardRow } from '@/components/CardRow'
+import {
+  CardFormDialog,
+  type CardFormValues,
+} from '@/components/CardFormDialog'
 import './DeckEditorView.css'
 import './DecksView.css'
 
@@ -13,29 +27,17 @@ async function fileToBlob(file: File): Promise<Blob> {
   return new Blob([buffer], { type: file.type || 'application/octet-stream' })
 }
 
-function CardRow({ card }: { card: Card }) {
-  const imageUrl = useObjectUrl(card.image)
-
-  return (
-    <li className="card-item">
-      {imageUrl ? (
-        <img src={imageUrl} alt="" className="card-thumb" />
-      ) : (
-        <div className="card-thumb card-thumb--empty" aria-hidden />
-      )}
-      <div className="card-body">
-        <div className="card-front">{card.front}</div>
-        {card.romaji ? <div className="card-romaji">{card.romaji}</div> : null}
-        <div className="card-back">{card.back}</div>
-      </div>
-    </li>
-  )
-}
-
 export function DeckEditorView() {
   const { deckId = '' } = useParams<{ deckId: string }>()
-  const { cards } = useDb(deckId)
+  const { cards, decks } = useDb(deckId)
   const deck = useLiveQuery(() => db.decks.get(deckId), [deckId])
+  const reviews = useLiveQuery(() => db.reviews.toArray(), [])
+
+  const reviewByCardId = useMemo(() => {
+    const map = new Map<string, Review>()
+    for (const review of reviews ?? []) map.set(review.cardId, review)
+    return map
+  }, [reviews])
 
   const [front, setFront] = useState('')
   const [romaji, setRomaji] = useState('')
@@ -45,6 +47,9 @@ export function DeckEditorView() {
   const [exporting, setExporting] = useState(false)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [status, setStatus] = useState<string | null>(null)
+  const [editingCard, setEditingCard] = useState<Card | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editSaving, setEditSaving] = useState(false)
 
   useEffect(() => {
     setFront('')
@@ -90,6 +95,55 @@ export function DeckEditorView() {
     } finally {
       setExporting(false)
     }
+  }
+
+  function openEdit(card: Card) {
+    setEditingCard(card)
+    setEditOpen(true)
+  }
+
+  async function handleEditSubmit(values: CardFormValues) {
+    if (!editingCard) return
+    setEditSaving(true)
+    setStatus(null)
+    try {
+      await updateCard({
+        id: editingCard.id,
+        front: values.front,
+        back: values.back,
+        romaji: values.romaji,
+        example: values.example,
+      })
+      setStatus('Card updated.')
+      setEditOpen(false)
+      setEditingCard(null)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Save failed.')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  async function handleReset(card: Card) {
+    const confirmed = window.confirm(
+      `Reset progress for “${card.front}” back to new?`,
+    )
+    if (!confirmed) return
+    await resetCardProgress(card.id)
+    setStatus('Progress reset.')
+  }
+
+  async function handleDelete(card: Card) {
+    const confirmed = window.confirm(
+      `Delete “${card.front}”? This removes the card, image, and review stats.`,
+    )
+    if (!confirmed) return
+    await deleteCard(card.id)
+    setStatus('Card deleted.')
+  }
+
+  function handleAssigned(card: Card, assignedDeck: Deck) {
+    setStatus(`Assigned “${card.front}” to “${assignedDeck.name}”.`)
   }
 
   if (deck === undefined) {
@@ -196,12 +250,34 @@ export function DeckEditorView() {
       {cards.length === 0 ? (
         <p className="empty-state">No cards yet. Add one with the form above.</p>
       ) : (
-        <ul className="card-list">
+        <ul className="flex flex-col gap-2">
           {cards.map((card) => (
-            <CardRow key={card.id} card={card} />
+            <CardRow
+              key={card.id}
+              card={card}
+              review={reviewByCardId.get(card.id) ?? null}
+              decks={decks}
+              deckColor={deck.color}
+              onEdit={openEdit}
+              onReset={(item) => void handleReset(item)}
+              onDelete={(item) => void handleDelete(item)}
+              onAssigned={handleAssigned}
+            />
           ))}
         </ul>
       )}
+
+      <CardFormDialog
+        open={editOpen}
+        mode="edit"
+        card={editingCard}
+        saving={editSaving}
+        onOpenChange={(open) => {
+          setEditOpen(open)
+          if (!open) setEditingCard(null)
+        }}
+        onSubmit={handleEditSubmit}
+      />
     </section>
   )
 }

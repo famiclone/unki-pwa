@@ -32,6 +32,7 @@ export {
 } from './useDb'
 export {
   getStudyQueue,
+  countStudyQueue,
   rateCard,
   ensureNewReview,
   type StudyItem,
