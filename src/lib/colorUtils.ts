@@ -33,3 +33,8 @@ export function getContrastYIQ(hexcolor: string): 'text-black' | 'text-white' {
 
   return yiq >= 128 ? 'text-black' : 'text-white'
 }
+
+/** Solid ink for text on a deck swatch (beats global heading color rules). */
+export function getContrastInk(hexcolor: string): '#111111' | '#ffffff' {
+  return getContrastYIQ(hexcolor) === 'text-black' ? '#111111' : '#ffffff'
+}

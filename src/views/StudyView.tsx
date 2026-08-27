@@ -12,6 +12,7 @@ import {
 import { persistDeckFilter } from '@/lib/deckFilter'
 import { toast } from 'sonner'
 import { ChallengeEngine } from '@/components/challenges/ChallengeEngine'
+import { MatchChallenge } from '@/components/challenges/MatchChallenge'
 import { Button } from '@/components/ui/button'
 import { Flashcard } from '@/components/Flashcard'
 import { SwipeCardShell } from '@/components/SwipeCardShell'
@@ -21,17 +22,19 @@ import {
   useStreak,
 } from '@/hooks/useStreak'
 import { isNewCard } from '@/lib/fsrsService'
+import { playCorrectSfx, playMistakeSfx } from '@/lib/sfx'
 import './StudyView.css'
 
-type SessionState = 'CARD' | 'CHALLENGE'
+type SessionState = 'CARD' | 'CHALLENGE' | 'CHALLENGE_REVEAL' | 'MATCH'
 
 type Feedback = {
   id: number
   text: string
 }
 
-/** Scramble UI stays stable only for short answers. */
+/** Scramble / type challenges stay stable only for short sides. */
 const CHALLENGE_MAX_BACK_LENGTH = 10
+const CHALLENGE_MAX_TERM_CHARS = 16
 
 /** Pause after grading so feedback can read before the next card. */
 const CARD_ADVANCE_DELAY_MS = 650
@@ -51,41 +54,14 @@ function successFeedbackLabel(grade: Grade, expGained: number): string {
   return `+${expGained} EXP`
 }
 
-function tryTriggerChallenge(cardBack: string, heroLevel: number): boolean {
-  if (cardBack.length > CHALLENGE_MAX_BACK_LENGTH) return false
-  const chance = Math.min(0.05 + heroLevel * 0.01, 0.5)
+function tryTriggerChallenge(card: Card, heroLevel: number): boolean {
+  const backOk = card.back.trim().length <= CHALLENGE_MAX_BACK_LENGTH
+  const termLen = Array.from(card.front.trim()).length
+  const scrambleOk = termLen >= 2 && termLen <= CHALLENGE_MAX_TERM_CHARS
+  if (!backOk && !scrambleOk) return false
+  // Base 20% + 2.5%/level, capped at 70%.
+  const chance = Math.min(0.2 + heroLevel * 0.025, 0.7)
   return Math.random() < chance
-}
-
-function GradeButtons({
-  onAgain,
-  onKnow,
-  rating,
-}: {
-  onAgain: () => void
-  onKnow: () => void
-  rating: boolean
-}) {
-  return (
-    <div className="grade-row" role="group" aria-label="Rate recall">
-      <button
-        type="button"
-        className="grade-btn grade-again"
-        disabled={rating}
-        onClick={onAgain}
-      >
-        Study again
-      </button>
-      <button
-        type="button"
-        className="grade-btn grade-know"
-        disabled={rating}
-        onClick={onKnow}
-      >
-        I know
-      </button>
-    </div>
-  )
 }
 
 function StudyFlashcard({
@@ -97,6 +73,7 @@ function StudyFlashcard({
   rating,
   meta,
   deckColor,
+  demoSwipe,
 }: {
   item: StudyItem
   revealed: boolean
@@ -106,11 +83,13 @@ function StudyFlashcard({
   rating: boolean
   meta: string
   deckColor?: string
+  demoSwipe?: boolean
 }) {
   return (
     <div className="study-flashcard-stack touch-pan-y">
       <SwipeCardShell
         enabled={!rating}
+        demoSwipe={demoSwipe}
         onSwipeLeft={onAgain}
         onSwipeRight={onKnow}
       >
@@ -124,18 +103,11 @@ function StudyFlashcard({
         />
       </SwipeCardShell>
 
-      <div className="study-flashcard-actions">
-        <GradeButtons
-          onAgain={onAgain}
-          onKnow={onKnow}
-          rating={rating}
-        />
-        <p className="m-0 text-center text-xs text-muted-foreground">
-          {revealed
-            ? 'Rate recall after checking the answer.'
-            : 'Flip to peek, or tap I know — short answers may trigger a challenge first.'}
-        </p>
-      </div>
+      <p className="m-0 text-center text-xs text-muted-foreground">
+        {revealed
+          ? 'Swipe right if you know it, left if you don’t.'
+          : 'Tap to flip · swipe right = I know · left = Study again'}
+      </p>
     </div>
   )
 }
@@ -174,6 +146,9 @@ export function StudyView() {
   const [feedback, setFeedback] = useState<Feedback[]>([])
   const feedbackSeq = useRef(0)
   const timeoutsRef = useRef<number[]>([])
+  /** Show match interrupt when doneCount hits this (null = none this session). */
+  const [matchAtDone, setMatchAtDone] = useState<number | null>(null)
+  const [matchCleared, setMatchCleared] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -195,6 +170,13 @@ export function StudyView() {
         setCardStartTime(Date.now())
         setDoneCount(0)
         setSessionExp(0)
+        setMatchCleared(false)
+        // Random step, but keep ≥ 4 cards remaining when it appears.
+        setMatchAtDone(
+          sessionBatch.length >= 4
+            ? Math.floor(Math.random() * (sessionBatch.length - 3))
+            : null,
+        )
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -213,6 +195,22 @@ export function StudyView() {
   const current = sessionQueue[0]
   const finished = sessionState === 'CARD' && !current
   const sessionComplete = finished && doneCount > 0
+
+  // Insert match challenge at the scheduled step (not later than 4 cards left).
+  useEffect(() => {
+    if (loading || matchCleared || matchAtDone === null) return
+    if (sessionState !== 'CARD') return
+    if (doneCount !== matchAtDone) return
+    if (sessionQueue.length < 4) return
+    setSessionState('MATCH')
+  }, [
+    loading,
+    matchCleared,
+    matchAtDone,
+    sessionState,
+    doneCount,
+    sessionQueue.length,
+  ])
 
   // Reset recall timer whenever the front of a new card is shown.
   useEffect(() => {
@@ -241,8 +239,13 @@ export function StudyView() {
     })
   }
 
-  async function finishCard(grade: Grade) {
+  async function finishCard(grade: Grade, opts?: { skipSfx?: boolean }) {
     if (!current || rating) return
+
+    if (!opts?.skipSfx) {
+      if (grade === 1) playMistakeSfx()
+      else playCorrectSfx()
+    }
 
     setRating(true)
     try {
@@ -282,7 +285,7 @@ export function StudyView() {
 
   function onKnow() {
     if (!current || rating) return
-    if (!revealed && tryTriggerChallenge(current.card.back, stats.level)) {
+    if (!revealed && tryTriggerChallenge(current.card, stats.level)) {
       setSessionState('CHALLENGE')
       return
     }
@@ -291,9 +294,37 @@ export function StudyView() {
     void finishCard(gradeFromRecallMs(elapsedMs))
   }
 
-  function handleChallengeComplete(isSuccess: boolean) {
-    // Challenges ignore the recall timer; success is always a solid Good.
+  function handleChallengeComplete(
+    isSuccess: boolean,
+    options?: { revealCard?: boolean; answerFace?: 'front' | 'back' },
+  ) {
+    if (!isSuccess && options?.revealCard) {
+      playMistakeSfx()
+      // Scramble answer is the term (front); text-input answer is the back.
+      setRevealed(options.answerFace !== 'front')
+      setSessionState('CHALLENGE_REVEAL')
+      return
+    }
+    // Success (or MCQ fail) grades immediately; success is always Good.
     void finishCard(isSuccess ? 3 : 1)
+  }
+
+  async function handleMatchComplete() {
+    setMatchCleared(true)
+    setSessionState('CARD')
+    // Last pair already played correct SFX; only award EXP here.
+    try {
+      const award = await awardReviewExp(3, false)
+      if (award.expGained > 0) {
+        spawnFeedback(`Match clear! (+${award.expGained} EXP)`)
+        setSessionExp((value) => value + award.expGained)
+      }
+      if (award.leveledUp) {
+        toast.success(`Level ${award.newLevel}`)
+      }
+    } catch {
+      spawnFeedback('Match clear!')
+    }
   }
 
   if ((deckId && deck === undefined) || loading) {
@@ -345,13 +376,6 @@ export function StudyView() {
       )}
 
       <header className="view-header">
-        <h1>
-          {sessionComplete
-            ? 'Session complete'
-            : sessionState === 'CHALLENGE'
-              ? 'Prove it!'
-              : 'Study'}
-        </h1>
         <p>
           {sessionComplete
             ? `Reviewed ${doneCount} card${doneCount === 1 ? '' : 's'}.`
@@ -359,7 +383,11 @@ export function StudyView() {
               ? 'Nothing due right now.'
               : sessionState === 'CHALLENGE'
                 ? 'Pass the challenge without peeking at the answer.'
-                : `${sessionQueue.length} remaining · ${doneCount} done`}
+                : sessionState === 'CHALLENGE_REVEAL'
+                  ? 'Check the answer, then continue.'
+                : sessionState === 'MATCH'
+                  ? 'Connect each prompt with its answer.'
+                  : `${sessionQueue.length} remaining · ${doneCount} done`}
         </p>
       </header>
 
@@ -392,6 +420,31 @@ export function StudyView() {
               </Button>
             </div>
           </div>
+        ) : sessionState === 'MATCH' && sessionQueue.length >= 4 ? (
+          <MatchChallenge
+            key={`match-${doneCount}-${matchAtDone}`}
+            remainingCards={sessionQueue.map((item) => item.card)}
+            onComplete={() => void handleMatchComplete()}
+          />
+        ) : current && sessionState === 'CHALLENGE_REVEAL' ? (
+          <div className="flex w-full flex-col gap-4">
+            <Flashcard
+              card={current.card}
+              revealed={revealed}
+              meta={cardMeta}
+              deckColor={currentDeckColor}
+              swipeEnabled={false}
+              onFlip={() => setRevealed((value) => !value)}
+            />
+            <Button
+              type="button"
+              className="h-14 w-full rounded-xl text-lg"
+              disabled={rating}
+              onClick={() => void finishCard(1, { skipSfx: true })}
+            >
+              Next card
+            </Button>
+          </div>
         ) : current && sessionState === 'CHALLENGE' ? (
           <ChallengeEngine
             key={`challenge-${current.card.id}`}
@@ -411,6 +464,9 @@ export function StudyView() {
             rating={rating}
             meta={cardMeta}
             deckColor={currentDeckColor}
+            demoSwipe={
+              doneCount === 0 && (matchAtDone !== 0 || matchCleared)
+            }
           />
         ) : null}
         <div
