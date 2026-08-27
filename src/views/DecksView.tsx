@@ -25,6 +25,7 @@ import {
 import { useDeckStats, EMPTY_DECK_STATS } from '@/hooks/useDeckStats'
 import {
   DEFAULT_DECK_COLOR,
+  getContrastInk,
   getContrastYIQ,
   normalizeHexColor,
 } from '@/lib/colorUtils'
@@ -156,28 +157,33 @@ export function DecksView() {
           {decks.map((deck) => {
             const color = normalizeHexColor(deck.color ?? DEFAULT_DECK_COLOR)
             const contrast = getContrastYIQ(color)
+            const ink = getContrastInk(color)
             const isDarkText = contrast === 'text-black'
             const stats = deckStats[deck.id] ?? EMPTY_DECK_STATS
 
             return (
               <li key={deck.id}>
                 <article
-                  className={cn(
-                    'relative overflow-hidden rounded-3xl p-5 pb-7 shadow-sm',
-                    contrast,
-                  )}
-                  style={{ backgroundColor: color }}
+                  className="relative overflow-hidden rounded-3xl p-5 pb-7 shadow-sm"
+                  style={{ backgroundColor: color, color: ink }}
                 >
                   <div className="flex items-start gap-2">
                     <Link
                       to={`/decks/${deck.id}`}
-                      className={cn('min-w-0 flex-1 block no-underline', contrast)}
+                      className="min-w-0 flex-1 block no-underline"
+                      style={{ color: ink }}
                     >
-                      <h2 className="m-0 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
+                      <h2
+                        className="m-0 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight"
+                        style={{ color: ink }}
+                      >
                         {deck.name}
                       </h2>
                       {deck.description ? (
-                        <p className="mt-1 mb-0 line-clamp-2 text-sm opacity-80">
+                        <p
+                          className="mt-1 mb-0 line-clamp-2 text-sm opacity-80"
+                          style={{ color: ink }}
+                        >
                           {deck.description}
                         </p>
                       ) : null}
@@ -190,11 +196,10 @@ export function DecksView() {
                           size="icon"
                           variant="ghost"
                           className={cn(
-                            'size-9 shrink-0',
-                            isDarkText
-                              ? 'text-black hover:bg-black/10'
-                              : 'text-white hover:bg-white/15',
+                            'size-9 shrink-0 hover:bg-black/10',
+                            !isDarkText && 'hover:bg-white/15',
                           )}
+                          style={{ color: ink }}
                           aria-label={`${deck.name} actions`}
                         >
                           <MoreHorizontal />
@@ -255,7 +260,10 @@ export function DecksView() {
                     </span>
                   </div>
 
-                  <p className="pointer-events-none absolute right-4 bottom-3 m-0 text-[11px] font-semibold opacity-70">
+                  <p
+                    className="pointer-events-none absolute right-4 bottom-3 m-0 text-[11px] font-semibold opacity-70"
+                    style={{ color: ink }}
+                  >
                     {stats.progressPercent}% Mastered
                   </p>
                   <div

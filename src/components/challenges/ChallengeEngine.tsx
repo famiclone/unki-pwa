@@ -21,12 +21,13 @@ type ChallengeEngineProps = {
 }
 
 function pickChallengeKind(
-  answer: string,
+  card: Card,
   canMultipleChoice: boolean,
 ): ChallengeKind {
   const pool: ChallengeKind[] = ['TEXT_INPUT']
-  const chars = Array.from(answer.trim())
-  if (chars.length >= 2 && chars.length <= 16) {
+  // Scramble is reverse-only: show translation, assemble the term (front).
+  const termChars = Array.from(card.front.trim())
+  if (termChars.length >= 2 && termChars.length <= 16) {
     pool.push('SCRAMBLE')
   }
   if (canMultipleChoice) {
@@ -36,13 +37,14 @@ function pickChallengeKind(
 }
 
 function challengeTitle(kind: ChallengeKind): string {
-  if (kind === 'SCRAMBLE') return 'Unscramble the answer'
+  if (kind === 'SCRAMBLE') return 'Unscramble the term'
   if (kind === 'MULTIPLE_CHOICE') return 'Choose the matching front'
   return 'Type the answer'
 }
 
 /**
  * Post-“I know” challenge gate. VOICE is reserved; falls back to text input.
+ * SCRAMBLE / MULTIPLE_CHOICE are reverse (translation → term).
  */
 export function ChallengeEngine({
   card,
@@ -52,7 +54,7 @@ export function ChallengeEngine({
 }: ChallengeEngineProps) {
   const kind = useMemo(() => {
     const canMultipleChoice = countChoiceDistractors(card, deckCards) >= 2
-    const rolled = pickChallengeKind(card.back, canMultipleChoice)
+    const rolled = pickChallengeKind(card, canMultipleChoice)
     return rolled === 'VOICE' ? 'TEXT_INPUT' : rolled
   }, [card, deckCards])
 
@@ -65,7 +67,7 @@ export function ChallengeEngine({
   }
 
   const locked = busy || resolved
-  const isMultipleChoice = kind === 'MULTIPLE_CHOICE'
+  const isReverse = kind === 'MULTIPLE_CHOICE' || kind === 'SCRAMBLE'
 
   return (
     <div className="challenge-engine flex w-full flex-col gap-5">
@@ -73,7 +75,11 @@ export function ChallengeEngine({
         <p className="m-0 text-xs font-semibold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">
           Challenge
         </p>
-        {isMultipleChoice ? null : (
+        {kind === 'MULTIPLE_CHOICE' ? null : isReverse ? (
+          <p className="m-0 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
+            {card.back}
+          </p>
+        ) : (
           <>
             <p className="m-0 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
               {card.front}
@@ -88,7 +94,7 @@ export function ChallengeEngine({
         <p className="m-0 text-sm text-muted-foreground">{challengeTitle(kind)}</p>
       </div>
 
-      {isMultipleChoice ? (
+      {kind === 'MULTIPLE_CHOICE' ? (
         <MultipleChoiceChallenge
           card={card}
           deckCards={deckCards}
@@ -97,7 +103,7 @@ export function ChallengeEngine({
         />
       ) : kind === 'SCRAMBLE' ? (
         <ScrambleChallenge
-          expected={card.back}
+          expected={card.front.trim()}
           disabled={locked}
           onComplete={finish}
         />
