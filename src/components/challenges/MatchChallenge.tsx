@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Card } from '@/db'
 import { shuffled } from '@/lib/shuffle'
-import { speakIfShort } from '@/lib/speech'
+import { detectSpeechLang, speakIfShort } from '@/lib/speech'
+import { playCorrectSfx, playMistakeSfx } from '@/lib/sfx'
 import { cn } from '@/lib/utils'
 
 export type MatchChallengeProps = {
@@ -95,8 +96,8 @@ export function MatchChallenge({
   }
 
   function speakTerm(tile: Tile) {
-    // Prefer the script/reading side when romaji is present (secondary above primary).
-    speakIfShort(tile.primary)
+    const text = tile.primary
+    speakIfShort(text, detectSpeechLang(text))
   }
 
   function handleTileClick(tile: Tile) {
@@ -120,6 +121,7 @@ export function MatchChallenge({
 
     // Second pick — check pair.
     if (selected.pairId === tile.pairId) {
+      playCorrectSfx()
       const next = new Set(matched)
       next.add(tile.pairId)
       setMatched(next)
@@ -133,6 +135,7 @@ export function MatchChallenge({
     }
 
     // Wrong pair — flash both, keep first selected.
+    playMistakeSfx()
     setBusy(true)
     setWrongIds(new Set([selected.id, tile.id]))
     clearFlash()

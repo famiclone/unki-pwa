@@ -17,7 +17,10 @@ type ChallengeEngineProps = {
   card: Card
   deckCards: Card[]
   busy?: boolean
-  onComplete: (isSuccess: boolean) => void
+  onComplete: (
+    isSuccess: boolean,
+    options?: { revealCard?: boolean; answerFace?: 'front' | 'back' },
+  ) => void
 }
 
 function pickChallengeKind(
@@ -45,6 +48,7 @@ function challengeTitle(kind: ChallengeKind): string {
 /**
  * Post-“I know” challenge gate. VOICE is reserved; falls back to text input.
  * SCRAMBLE / MULTIPLE_CHOICE are reverse (translation → term).
+ * Failed TEXT_INPUT / SCRAMBLE reveal the card before grading Again.
  */
 export function ChallengeEngine({
   card,
@@ -63,6 +67,13 @@ export function ChallengeEngine({
   function finish(isSuccess: boolean) {
     if (busy || resolved) return
     setResolved(true)
+    if (!isSuccess && (kind === 'TEXT_INPUT' || kind === 'SCRAMBLE')) {
+      onComplete(false, {
+        revealCard: true,
+        answerFace: kind === 'SCRAMBLE' ? 'front' : 'back',
+      })
+      return
+    }
     onComplete(isSuccess)
   }
 

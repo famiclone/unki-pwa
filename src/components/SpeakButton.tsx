@@ -12,7 +12,7 @@ type SpeakButtonProps = {
 
 export function SpeakButton({
   text,
-  lang = 'ja-JP',
+  lang,
   label = 'Pronounce',
   className,
 }: SpeakButtonProps) {

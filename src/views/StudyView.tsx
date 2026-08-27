@@ -22,9 +22,10 @@ import {
   useStreak,
 } from '@/hooks/useStreak'
 import { isNewCard } from '@/lib/fsrsService'
+import { playCorrectSfx, playMistakeSfx } from '@/lib/sfx'
 import './StudyView.css'
 
-type SessionState = 'CARD' | 'CHALLENGE' | 'MATCH'
+type SessionState = 'CARD' | 'CHALLENGE' | 'CHALLENGE_REVEAL' | 'MATCH'
 
 type Feedback = {
   id: number
@@ -238,8 +239,13 @@ export function StudyView() {
     })
   }
 
-  async function finishCard(grade: Grade) {
+  async function finishCard(grade: Grade, opts?: { skipSfx?: boolean }) {
     if (!current || rating) return
+
+    if (!opts?.skipSfx) {
+      if (grade === 1) playMistakeSfx()
+      else playCorrectSfx()
+    }
 
     setRating(true)
     try {
@@ -288,14 +294,25 @@ export function StudyView() {
     void finishCard(gradeFromRecallMs(elapsedMs))
   }
 
-  function handleChallengeComplete(isSuccess: boolean) {
-    // Challenges ignore the recall timer; success is always a solid Good.
+  function handleChallengeComplete(
+    isSuccess: boolean,
+    options?: { revealCard?: boolean; answerFace?: 'front' | 'back' },
+  ) {
+    if (!isSuccess && options?.revealCard) {
+      playMistakeSfx()
+      // Scramble answer is the term (front); text-input answer is the back.
+      setRevealed(options.answerFace !== 'front')
+      setSessionState('CHALLENGE_REVEAL')
+      return
+    }
+    // Success (or MCQ fail) grades immediately; success is always Good.
     void finishCard(isSuccess ? 3 : 1)
   }
 
   async function handleMatchComplete() {
     setMatchCleared(true)
     setSessionState('CARD')
+    // Last pair already played correct SFX; only award EXP here.
     try {
       const award = await awardReviewExp(3, false)
       if (award.expGained > 0) {
@@ -366,6 +383,8 @@ export function StudyView() {
               ? 'Nothing due right now.'
               : sessionState === 'CHALLENGE'
                 ? 'Pass the challenge without peeking at the answer.'
+                : sessionState === 'CHALLENGE_REVEAL'
+                  ? 'Check the answer, then continue.'
                 : sessionState === 'MATCH'
                   ? 'Connect each prompt with its answer.'
                   : `${sessionQueue.length} remaining · ${doneCount} done`}
@@ -407,6 +426,25 @@ export function StudyView() {
             remainingCards={sessionQueue.map((item) => item.card)}
             onComplete={() => void handleMatchComplete()}
           />
+        ) : current && sessionState === 'CHALLENGE_REVEAL' ? (
+          <div className="flex w-full flex-col gap-4">
+            <Flashcard
+              card={current.card}
+              revealed={revealed}
+              meta={cardMeta}
+              deckColor={currentDeckColor}
+              swipeEnabled={false}
+              onFlip={() => setRevealed((value) => !value)}
+            />
+            <Button
+              type="button"
+              className="h-14 w-full rounded-xl text-lg"
+              disabled={rating}
+              onClick={() => void finishCard(1, { skipSfx: true })}
+            >
+              Next card
+            </Button>
+          </div>
         ) : current && sessionState === 'CHALLENGE' ? (
           <ChallengeEngine
             key={`challenge-${current.card.id}`}
